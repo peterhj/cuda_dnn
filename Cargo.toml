@@ -1,0 +1,15 @@
+[package]
+name = "cuda_dnn"
+version = "0.1.0"
+authors = ["Peter Jin <peterhaijin@gmail.com>"]
+build = "build.rs"
+
+[lib]
+name = "cuda_dnn"
+path = "src/lib.rs"
+
+[dependencies]
+libc = "*"
+
+[dependencies.cuda]
+path = "../libcuda"
