@@ -66,10 +66,10 @@ pub enum cudnnTensorFormat_t {
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub enum cudnnAddMode_t {
-  Image       = 0,
   //SameHW      = 0,
-  FeatureMap  = 1,
+  Image       = 0,
   //SameCHW     = 1,
+  FeatureMap  = 1,
   SameC       = 2,
   FullTensor  = 3,
 }
@@ -367,6 +367,41 @@ extern "C" {
       beta: *const c_void,
       grad_desc: cudnnTensorDescriptor_t,
       grad_data: *mut c_void,
+  ) -> cudnnStatus_t;
+
+  pub fn cudnnAddTensor_v3(
+      handle: cudnnHandle_t,
+      alpha: *const c_void,
+      bias_desc: cudnnTensorDescriptor_t,
+      bias_data: *const c_void,
+      beta: *const c_void,
+      src_dst_desc: cudnnTensorDescriptor_t,
+      src_dst_data: *mut c_void,
+  ) -> cudnnStatus_t;
+
+  pub fn cudnnActivationForward(
+      handle: cudnnHandle_t,
+      mode: cudnnActivationMode_t,
+      alpha: *const c_void,
+      src_desc: cudnnTensorDescriptor_t,
+      src_data: *const c_void,
+      beta: *const c_void,
+      dst_desc: cudnnTensorDescriptor_t,
+      dst_data: *mut c_void,
+  ) -> cudnnStatus_t;
+  pub fn cudnnActivationBackward(
+      handle: cudnnHandle_t,
+      mode: cudnnActivationMode_t,
+      alpha: *const c_void,
+      src_desc: cudnnTensorDescriptor_t,
+      src_data: *const c_void,
+      src_diff_desc: cudnnTensorDescriptor_t,
+      src_diff_data: *const c_void,
+      dst_desc: cudnnTensorDescriptor_t,
+      dst_data: *const c_void,
+      beta: *const c_void,
+      dst_diff_desc: cudnnTensorDescriptor_t,
+      dst_diff_data: *mut c_void,
   ) -> cudnnStatus_t;
 
   pub fn cudnnSoftmaxForward(

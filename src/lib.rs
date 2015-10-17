@@ -160,7 +160,7 @@ impl Drop for CudnnConvDesc {
   }
 }
 
-pub struct CudnnConvFwdDesc {
+pub struct CudnnConvFwdOp {
   pub algo:         cudnnConvolutionFwdAlgo_t,
   pub work_size:    usize,
   pub time_ms:      f32,
@@ -170,8 +170,8 @@ pub struct CudnnConvFwdDesc {
   pub dst_desc:     CudnnTensorDesc<f32>,
 }
 
-impl CudnnConvFwdDesc {
-  pub fn create_fastest(src_desc: CudnnTensorDesc<f32>, filter_desc: CudnnFilterDesc<f32>, conv_desc: CudnnConvDesc, dst_desc: CudnnTensorDesc<f32>, handle: &CudnnHandle) -> CudnnResult<CudnnConvFwdDesc> {
+impl CudnnConvFwdOp {
+  pub fn create_fastest(src_desc: CudnnTensorDesc<f32>, filter_desc: CudnnFilterDesc<f32>, conv_desc: CudnnConvDesc, dst_desc: CudnnTensorDesc<f32>, handle: &CudnnHandle) -> CudnnResult<CudnnConvFwdOp> {
     let mut count: c_int = 0;
     let mut inner: cudnnConvolutionFwdAlgoPerf_t = Default::default();
     let status = unsafe { cudnnFindConvolutionForwardAlgorithm(
@@ -184,7 +184,7 @@ impl CudnnConvFwdDesc {
         &mut inner as *mut _,
     ) };
     //println!("DEBUG: perf: {:?}", inner);
-    new_result(CudnnConvFwdDesc{
+    new_result(CudnnConvFwdOp{
       algo: inner.algo, work_size: inner.memory as usize, time_ms: inner.time,
       src_desc: src_desc,
       filter_desc: filter_desc,
@@ -215,7 +215,7 @@ impl CudnnConvFwdDesc {
   }
 }
 
-pub struct CudnnConvBwdFilterDesc {
+pub struct CudnnConvBwdFilterOp {
   pub algo:       cudnnConvolutionBwdFilterAlgo_t,
   pub work_size:  usize,
   pub time_ms:    f32,
@@ -226,8 +226,8 @@ pub struct CudnnConvBwdFilterDesc {
   pub grad_bias_desc:   CudnnTensorDesc<f32>,
 }
 
-impl CudnnConvBwdFilterDesc {
-  pub fn create_fastest(src_desc: CudnnTensorDesc<f32>, diff_desc: CudnnTensorDesc<f32>, conv_desc: CudnnConvDesc, grad_filter_desc: CudnnFilterDesc<f32>, grad_bias_desc: CudnnTensorDesc<f32>, handle: &CudnnHandle) -> CudnnResult<CudnnConvBwdFilterDesc> {
+impl CudnnConvBwdFilterOp {
+  pub fn create_fastest(src_desc: CudnnTensorDesc<f32>, diff_desc: CudnnTensorDesc<f32>, conv_desc: CudnnConvDesc, grad_filter_desc: CudnnFilterDesc<f32>, grad_bias_desc: CudnnTensorDesc<f32>, handle: &CudnnHandle) -> CudnnResult<CudnnConvBwdFilterOp> {
     let mut count: c_int = 0;
     let mut inner: cudnnConvolutionBwdFilterAlgoPerf_t = Default::default();
     let status = unsafe { cudnnFindConvolutionBackwardFilterAlgorithm(
@@ -240,7 +240,7 @@ impl CudnnConvBwdFilterDesc {
         &mut inner as *mut _,
     ) };
     //println!("DEBUG: perf: {:?}", inner);
-    new_result(CudnnConvBwdFilterDesc{
+    new_result(CudnnConvBwdFilterOp{
       algo: inner.algo, work_size: inner.memory as usize, time_ms: inner.time,
       src_desc: src_desc,
       diff_desc: diff_desc,
@@ -287,7 +287,7 @@ impl CudnnConvBwdFilterDesc {
   }
 }
 
-pub struct CudnnConvBwdDataDesc {
+pub struct CudnnConvBwdDataOp {
   pub algo:         cudnnConvolutionBwdDataAlgo_t,
   pub work_size:    usize,
   pub time_ms:      f32,
@@ -297,8 +297,8 @@ pub struct CudnnConvBwdDataDesc {
   pub grad_desc:    CudnnTensorDesc<f32>,
 }
 
-impl CudnnConvBwdDataDesc {
-  pub fn create_fastest(filter_desc: CudnnFilterDesc<f32>, diff_desc: CudnnTensorDesc<f32>, conv_desc: CudnnConvDesc, grad_desc: CudnnTensorDesc<f32>, handle: &CudnnHandle) -> CudnnResult<CudnnConvBwdDataDesc> {
+impl CudnnConvBwdDataOp {
+  pub fn create_fastest(filter_desc: CudnnFilterDesc<f32>, diff_desc: CudnnTensorDesc<f32>, conv_desc: CudnnConvDesc, grad_desc: CudnnTensorDesc<f32>, handle: &CudnnHandle) -> CudnnResult<CudnnConvBwdDataOp> {
     let mut count: c_int = 0;
     let mut inner: cudnnConvolutionBwdDataAlgoPerf_t = Default::default();
     let status = unsafe { cudnnFindConvolutionBackwardDataAlgorithm(
@@ -311,7 +311,7 @@ impl CudnnConvBwdDataDesc {
         &mut inner as *mut _,
     ) };
     //println!("DEBUG: perf: {:?}", inner);
-    new_result(CudnnConvBwdDataDesc{
+    new_result(CudnnConvBwdDataOp{
       algo: inner.algo, work_size: inner.memory as usize, time_ms: inner.time,
       filter_desc: filter_desc,
       diff_desc: diff_desc,
@@ -359,14 +359,101 @@ impl CudnnConvBwdDataDesc {
   new_result(alg, status)
 }*/
 
-pub struct CudnnSoftmaxDesc {
+pub struct CudnnAddOp {
+  bias_desc:    CudnnTensorDesc<f32>,
+  src_dst_desc: CudnnTensorDesc<f32>,
+}
+
+impl CudnnAddOp {
+  pub fn new(bias_desc: CudnnTensorDesc<f32>, src_dst_desc: CudnnTensorDesc<f32>) -> CudnnAddOp {
+    CudnnAddOp{
+      bias_desc:    bias_desc,
+      src_dst_desc: src_dst_desc,
+    }
+  }
+
+  pub unsafe fn forward(&self, bias: *const f32, src_dst: *mut f32, handle: &CudnnHandle) -> CudnnResult<()> {
+    let alpha: f32 = 1.0;
+    let beta: f32 = 1.0;
+    let status = unsafe { cudnnAddTensor_v3(
+        handle.ptr,
+        &alpha as *const f32 as *const c_void,
+        self.bias_desc.ptr,
+        bias as *const c_void,
+        &beta as *const f32 as *const c_void,
+        self.src_dst_desc.ptr,
+        src_dst as *mut c_void,
+    ) };
+    new_result((), status)
+  }
+}
+
+#[derive(Clone, Copy)]
+pub enum CudnnActKind {
+  Relu,
+  Sigmoid,
+  Tanh,
+}
+
+impl CudnnActKind {
+  pub fn to_cudnn(&self) -> cudnnActivationMode_t {
+    match *self {
+      CudnnActKind::Relu    => cudnnActivationMode_t::Relu,
+      CudnnActKind::Sigmoid => cudnnActivationMode_t::Sigmoid,
+      CudnnActKind::Tanh    => cudnnActivationMode_t::Tanh,
+    }
+  }
+}
+
+pub struct CudnnActOp {
+  mode:           cudnnActivationMode_t,
   src_desc:       CudnnTensorDesc<f32>,
   src_diff_desc:  CudnnTensorDesc<f32>,
   dst_desc:       CudnnTensorDesc<f32>,
   dst_diff_desc:  CudnnTensorDesc<f32>,
 }
 
-impl CudnnSoftmaxDesc {
+impl CudnnActOp {
+  pub fn new(kind: CudnnActKind, in_act_desc: CudnnTensorDesc<f32>, in_delta_desc: CudnnTensorDesc<f32>, out_act_desc: CudnnTensorDesc<f32>, out_delta_desc: CudnnTensorDesc<f32>) -> CudnnActOp {
+    CudnnActOp{
+      mode:           kind.to_cudnn(),
+      src_desc:       in_act_desc,
+      src_diff_desc:  out_delta_desc,
+      dst_desc:       out_act_desc,
+      dst_diff_desc:  in_delta_desc,
+    }
+  }
+
+  pub unsafe fn forward_in_place(&self, out_act: *mut f32, handle: &CudnnHandle) -> CudnnResult<()> {
+    let alpha: f32 = 1.0;
+    let beta: f32 = 0.0;
+    // FIXME(20151017): activation mode.
+    let status = unsafe { cudnnActivationForward(
+        handle.ptr,
+        cudnnActivationMode_t::Relu,
+        &alpha as *const f32 as *const c_void,
+        self.src_desc.ptr,
+        out_act as *const c_void,
+        &beta as *const f32 as *const c_void,
+        self.dst_desc.ptr,
+        out_act as *mut c_void,
+    ) };
+    new_result((), status)
+  }
+
+  pub unsafe fn backward(&self) {
+    // TODO
+  }
+}
+
+pub struct CudnnSoftmaxOp {
+  src_desc:       CudnnTensorDesc<f32>,
+  src_diff_desc:  CudnnTensorDesc<f32>,
+  dst_desc:       CudnnTensorDesc<f32>,
+  dst_diff_desc:  CudnnTensorDesc<f32>,
+}
+
+impl CudnnSoftmaxOp {
   pub unsafe fn forward(&self, in_act: *const f32, out_act: *mut f32, handle: &CudnnHandle) -> CudnnResult<()> {
     let alpha: f32 = 1.0;
     let beta: f32 = 0.0;
