@@ -427,10 +427,9 @@ impl CudnnActOp {
   pub unsafe fn forward_in_place(&self, out_act: *mut f32, handle: &CudnnHandle) -> CudnnResult<()> {
     let alpha: f32 = 1.0;
     let beta: f32 = 0.0;
-    // FIXME(20151017): activation mode.
     let status = unsafe { cudnnActivationForward(
         handle.ptr,
-        cudnnActivationMode_t::Relu,
+        self.mode,
         &alpha as *const f32 as *const c_void,
         self.src_desc.ptr,
         out_act as *const c_void,
@@ -441,19 +440,42 @@ impl CudnnActOp {
     new_result((), status)
   }
 
-  pub unsafe fn backward(&self) {
-    // TODO
+  pub unsafe fn backward_in_place(&self, in_act: *const f32, out_act: *const f32, out_delta: *mut f32, handle: &CudnnHandle) -> CudnnResult<()> {
+    let alpha: f32 = 1.0;
+    let beta: f32 = 0.0;
+    let status = unsafe { cudnnActivationBackward(
+        handle.ptr,
+        self.mode,
+        &alpha as *const f32 as *const c_void,
+        self.src_desc.ptr,
+        in_act as *const c_void,
+        self.src_diff_desc.ptr,
+        out_delta as *const c_void,
+        self.dst_desc.ptr,
+        out_act as *const c_void,
+        &beta as *const f32 as *const c_void,
+        self.dst_diff_desc.ptr,
+        out_delta as *mut c_void,
+    ) };
+    new_result((), status)
   }
 }
 
 pub struct CudnnSoftmaxOp {
   src_desc:       CudnnTensorDesc<f32>,
-  src_diff_desc:  CudnnTensorDesc<f32>,
+  //src_diff_desc:  CudnnTensorDesc<f32>,
   dst_desc:       CudnnTensorDesc<f32>,
-  dst_diff_desc:  CudnnTensorDesc<f32>,
+  //dst_diff_desc:  CudnnTensorDesc<f32>,
 }
 
 impl CudnnSoftmaxOp {
+  pub fn new(in_act_desc: CudnnTensorDesc<f32>, prob_act_desc: CudnnTensorDesc<f32>) -> CudnnSoftmaxOp {
+    CudnnSoftmaxOp{
+      src_desc: in_act_desc,
+      dst_desc: prob_act_desc,
+    }
+  }
+
   pub unsafe fn forward(&self, in_act: *const f32, out_act: *mut f32, handle: &CudnnHandle) -> CudnnResult<()> {
     let alpha: f32 = 1.0;
     let beta: f32 = 0.0;
