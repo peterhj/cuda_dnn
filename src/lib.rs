@@ -193,7 +193,7 @@ impl CudnnConvFwdOp {
     }, status)
   }
 
-  pub unsafe fn forward(&self, in_act: *const f32, filter: *const f32, out_act: *mut f32, work_space: *mut f32, handle: &CudnnHandle) -> CudnnResult<()> {
+  pub unsafe fn forward(&self, in_act: *const f32, filter: *const f32, out_act: *mut f32, work_space: *mut u8, handle: &CudnnHandle) -> CudnnResult<()> {
     let alpha: f32 = 1.0;
     let beta: f32 = 0.0;
     let status = unsafe { cudnnConvolutionForward(
@@ -250,7 +250,7 @@ impl CudnnConvBwdFilterOp {
     }, status)
   }
 
-  pub unsafe fn backward_filter(&self, in_act: *const f32, out_delta: *const f32, grad_filter_accum: *mut f32, work_space: *mut f32, handle: &CudnnHandle) -> CudnnResult<()> {
+  pub unsafe fn backward_filter(&self, in_act: *const f32, out_delta: *const f32, grad_filter_accum: *mut f32, work_space: *mut u8, handle: &CudnnHandle) -> CudnnResult<()> {
     let alpha: f32 = 1.0;
     let beta: f32 = 1.0;
     let status = unsafe { cudnnConvolutionBackwardFilter_v3(
@@ -320,7 +320,7 @@ impl CudnnConvBwdDataOp {
     }, status)
   }
 
-  pub unsafe fn backward_data(&self, filter: *const f32, out_delta: *const f32, in_delta: *mut f32, work_space: *mut f32, handle: &CudnnHandle) -> CudnnResult<()> {
+  pub unsafe fn backward_data(&self, filter: *const f32, out_delta: *const f32, in_delta: *mut f32, work_space: *mut u8, handle: &CudnnHandle) -> CudnnResult<()> {
     let alpha: f32 = 1.0;
     let beta: f32 = 0.0;
     let status = unsafe { cudnnConvolutionBackwardData_v3(
