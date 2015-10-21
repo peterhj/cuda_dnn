@@ -493,22 +493,21 @@ impl CudnnSoftmaxOp {
     new_result((), status)
   }
 
-  // FIXME(20151016): the notation here is really unclear.
-  /*pub unsafe fn backward(&self, out_act: *const f32, out_delta: *const f32, in_delta: *mut f32, handle: &CudnnHandle) -> CudnnResult<()> {
+  /*pub unsafe fn backward(&self, in_act: *const f32, out_delta: *const f32, in_delta: *mut f32, handle: &CudnnHandle) -> CudnnResult<()> {
     let alpha: f32 = 1.0;
     let beta: f32 = 0.0;
-    let status = unsafe { cudnnSoftmaxForward(
+    let status = unsafe { cudnnSoftmaxBackward(
         handle.ptr,
         cudnnSoftmaxAlgorithm_t::Accurate,
         cudnnSoftmaxMode_t::Instance,
         &alpha as *const f32 as *const c_void,
-        self.dst_desc.ptr,
-        out_act as *const c_void,
+        self.src_desc.ptr,
+        in_act as *const c_void,
         self.src_diff_desc.ptr,
         out_delta as *const c_void,
         &beta as *const f32 as *const c_void,
         self.dst_diff_desc.ptr,
-        in_act as *mut c_void,
+        in_delta as *mut c_void,
     ) };
     new_result((), status)
   }*/
