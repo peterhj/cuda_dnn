@@ -62,25 +62,49 @@ impl Drop for CudnnHandle {
 }
 
 pub struct CudnnTensorDesc<T> where T: CudnnDataTypeExt {
-  ptr: cudnnTensorDescriptor_t,
-  _marker: PhantomData<T>,
+  ptr:        cudnnTensorDescriptor_t,
+  width:      usize,
+  height:     usize,
+  channels:   usize,
+  batch_size: usize,
+  _marker:    PhantomData<T>,
 }
 
 impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
   pub fn create_4d(width: usize, height: usize, channels: usize, num: usize) -> CudnnResult<CudnnTensorDesc<f32>> {
     let mut inner: cudnnTensorDescriptor_t = null_mut();
     let status = unsafe { cudnnCreateTensorDescriptor(&mut inner as *mut _) };
-    new_result(CudnnTensorDesc{ptr: inner, _marker: PhantomData}, status)
+    new_result(CudnnTensorDesc{
+      ptr: inner, _marker: PhantomData,
+      width: width, height: height, channels: channels, batch_size: num,
+    }, status)
       .and_then(|desc| {
         let status = unsafe { cudnnSetTensor4dDescriptor(
             desc.ptr,
             // FIXME(20151001): may want to specify data layout.
             cudnnTensorFormat_t::RowMajorNCHW,
             T::data_ty(),
-            num as c_int, channels as c_int, height as c_int, width as c_int,
+            num as c_int,
+            channels as c_int,
+            height as c_int,
+            width as c_int,
         ) };
         new_result(desc, status)
       })
+  }
+
+  pub fn set_batch_size(&mut self, new_batch_size: usize) -> CudnnResult<()> {
+    let status = unsafe { cudnnSetTensor4dDescriptor(
+        self.ptr,
+        // FIXME(20151001): may want to specify data layout.
+        cudnnTensorFormat_t::RowMajorNCHW,
+        T::data_ty(),
+        new_batch_size as c_int,
+        self.channels as c_int,
+        self.height as c_int,
+        self.width as c_int,
+    ) };
+    new_result((), status)
   }
 }
 
@@ -213,6 +237,15 @@ impl CudnnConvFwdOp {
     ) };
     new_result((), status)
   }
+
+  pub fn set_batch_size(&mut self, new_batch_size: usize) -> CudnnResult<()> {
+    let res = self.src_desc.set_batch_size(new_batch_size);
+    if res.is_err() {
+      return res;
+    }
+    let res = self.dst_desc.set_batch_size(new_batch_size);
+    res
+  }
 }
 
 pub struct CudnnConvBwdFilterOp {
@@ -285,6 +318,15 @@ impl CudnnConvBwdFilterOp {
     ) };
     new_result((), status)
   }
+
+  pub fn set_batch_size(&mut self, new_batch_size: usize) -> CudnnResult<()> {
+    let res = self.src_desc.set_batch_size(new_batch_size);
+    if res.is_err() {
+      return res;
+    }
+    let res = self.diff_desc.set_batch_size(new_batch_size);
+    res
+  }
 }
 
 pub struct CudnnConvBwdDataOp {
@@ -339,6 +381,11 @@ impl CudnnConvBwdDataOp {
         in_delta as *mut c_void,
     ) };
     new_result((), status)
+  }
+
+  pub fn set_batch_size(&mut self, new_batch_size: usize) -> CudnnResult<()> {
+    let res = self.diff_desc.set_batch_size(new_batch_size);
+    res
   }
 }
 
