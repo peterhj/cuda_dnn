@@ -94,17 +94,22 @@ impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
   }
 
   pub fn set_batch_size(&mut self, new_batch_size: usize) -> CudnnResult<()> {
-    let status = unsafe { cudnnSetTensor4dDescriptor(
-        self.ptr,
-        // FIXME(20151001): may want to specify data layout.
-        cudnnTensorFormat_t::RowMajorNCHW,
-        T::data_ty(),
-        new_batch_size as c_int,
-        self.channels as c_int,
-        self.height as c_int,
-        self.width as c_int,
-    ) };
-    new_result((), status)
+    if new_batch_size == self.batch_size {
+      Ok(())
+    } else {
+      let status = unsafe { cudnnSetTensor4dDescriptor(
+          self.ptr,
+          // FIXME(20151001): may want to specify data layout.
+          cudnnTensorFormat_t::RowMajorNCHW,
+          T::data_ty(),
+          new_batch_size as c_int,
+          self.channels as c_int,
+          self.height as c_int,
+          self.width as c_int,
+      ) };
+      new_result((), status)
+        .map(|_| { self.batch_size = new_batch_size; () })
+    }
   }
 }
 
