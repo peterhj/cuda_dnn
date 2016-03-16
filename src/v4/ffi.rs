@@ -316,6 +316,15 @@ extern "C" {
       returned_algo_count: *mut c_int,
       perf_results: *mut cudnnConvolutionBwdDataAlgoPerf_t,
   ) -> cudnnStatus_t;
+  pub fn cudnnGetConvolutionForwardWorkspaceSize(
+      handle: cudnnHandle_t,
+      src_desc: cudnnTensorDescriptor_t,
+      filter_desc: cudnnFilterDescriptor_t,
+      conv_desc: cudnnConvolutionDescriptor_t,
+      dest_desc: cudnnTensorDescriptor_t,
+      algo: cudnnConvolutionFwdAlgo_t,
+      size_in_bytes: *mut size_t,
+  ) -> cudnnStatus_t;
   pub fn cudnnGetConvolutionBackwardFilterWorkspaceSize(
       handle: cudnnHandle_t,
       src_desc: cudnnTensorDescriptor_t,

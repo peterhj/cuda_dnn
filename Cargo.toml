@@ -4,10 +4,16 @@ version = "0.1.0"
 authors = ["Peter Jin <peterhaijin@gmail.com>"]
 build = "build.rs"
 
+#[features]
+#default = []
+#cudnn_v3 = []
+#cudnn_v4 = []
+
 [lib]
 name = "cuda_dnn"
 path = "src/lib.rs"
 
 [dependencies]
-libc = "*"
+libc = "^0.2.*"
+float = "^0.1.*"
 cuda = { path = "../libcuda" }

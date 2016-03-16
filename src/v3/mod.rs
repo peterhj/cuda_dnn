@@ -464,6 +464,11 @@ impl CudnnAddOp {
     }
   }
 
+  pub fn set_batch_size(&mut self, new_batch_size: usize) -> CudnnResult<()> {
+    let res = self.src_dst_desc.set_batch_size(new_batch_size);
+    res
+  }
+
   pub unsafe fn forward(&self, bias: *const f32, src_dst: *mut f32, handle: &CudnnHandle) -> CudnnResult<()> {
     let alpha: f32 = 1.0;
     let beta: f32 = 1.0;

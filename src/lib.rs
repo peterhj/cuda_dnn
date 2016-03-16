@@ -1,4 +1,5 @@
 extern crate cuda;
+extern crate float;
 extern crate libc;
 
 pub mod v3;

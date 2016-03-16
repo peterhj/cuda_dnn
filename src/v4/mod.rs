@@ -1,8 +1,10 @@
 use v4::ffi::*;
 
 use cuda::runtime::{CudaStream};
+use float::stub::{f16_stub};
 
 use libc::{c_void, c_int, size_t};
+use std::cmp::{max};
 use std::marker::{PhantomData};
 use std::ptr::{null_mut};
 
@@ -10,6 +12,12 @@ pub mod ffi;
 
 pub trait CudnnDataTypeExt {
   fn data_ty() -> cudnnDataType_t;
+}
+
+impl CudnnDataTypeExt for f16_stub {
+  fn data_ty() -> cudnnDataType_t {
+    cudnnDataType_t::Half
+  }
 }
 
 impl CudnnDataTypeExt for f32 {
@@ -72,8 +80,12 @@ impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
     let mut inner: cudnnTensorDescriptor_t = null_mut();
     let status = unsafe { cudnnCreateTensorDescriptor(&mut inner as *mut _) };
     new_result(CudnnTensorDesc{
-      ptr: inner, _marker: PhantomData,
-      width: width, height: height, channels: channels, batch_size: num,
+      ptr: inner,
+      width: width,
+      height: height,
+      channels: channels,
+      batch_size: num,
+      _marker: PhantomData,
     }, status)
       .and_then(|desc| {
         let status = unsafe { cudnnSetTensor4dDescriptor(
@@ -120,15 +132,26 @@ impl<T> Drop for CudnnTensorDesc<T> where T: CudnnDataTypeExt {
 }
 
 pub struct CudnnFilterDesc<T> where T: CudnnDataTypeExt {
-  ptr: cudnnFilterDescriptor_t,
-  _marker: PhantomData<T>,
+  ptr:          cudnnFilterDescriptor_t,
+  width:        usize,
+  height:       usize,
+  in_channels:  usize,
+  out_channels: usize,
+  _marker:      PhantomData<T>,
 }
 
 impl<T> CudnnFilterDesc<T> where T: CudnnDataTypeExt {
   pub fn create_4d(width: usize, height: usize, in_channels: usize, out_channels: usize) -> CudnnResult<CudnnFilterDesc<f32>> {
     let mut inner: cudnnFilterDescriptor_t = null_mut();
     let status = unsafe { cudnnCreateFilterDescriptor(&mut inner as *mut _) };
-    new_result(CudnnFilterDesc{ptr: inner, _marker: PhantomData}, status)
+    new_result(CudnnFilterDesc{
+      ptr: inner,
+      width: width,
+      height: height,
+      in_channels: in_channels,
+      out_channels: out_channels,
+      _marker: PhantomData,
+    }, status)
       .and_then(|desc| {
         let status = unsafe { cudnnSetFilter4dDescriptor(
             desc.ptr,
@@ -151,6 +174,10 @@ impl<T> Drop for CudnnFilterDesc<T> where T: CudnnDataTypeExt {
 
 pub struct CudnnConvDesc {
   ptr: cudnnConvolutionDescriptor_t,
+  stride_w: usize,
+  stride_h: usize,
+  pad_w:    usize,
+  pad_h:    usize,
 }
 
 impl CudnnConvDesc {
@@ -161,7 +188,13 @@ impl CudnnConvDesc {
   pub fn create_2d(stride_w: usize, stride_h: usize, pad_w: usize, pad_h: usize) -> CudnnResult<CudnnConvDesc> {
     let mut inner: cudnnConvolutionDescriptor_t = null_mut();
     let status = unsafe { cudnnCreateConvolutionDescriptor(&mut inner as *mut _) };
-    new_result(CudnnConvDesc{ptr: inner}, status)
+    new_result(CudnnConvDesc{
+      ptr: inner,
+      stride_w: stride_w,
+      stride_h: stride_h,
+      pad_w: pad_w,
+      pad_h: pad_h,
+    }, status)
       .and_then(|desc| {
         let status = unsafe { cudnnSetConvolution2dDescriptor(
             desc.ptr,
@@ -197,7 +230,7 @@ pub struct CudnnConvFwdOp {
 }
 
 impl CudnnConvFwdOp {
-  pub fn create_fastest(src_desc: CudnnTensorDesc<f32>, filter_desc: CudnnFilterDesc<f32>, conv_desc: CudnnConvDesc, dst_desc: CudnnTensorDesc<f32>, handle: &CudnnHandle) -> CudnnResult<CudnnConvFwdOp> {
+  pub fn create_fastest(mut src_desc: CudnnTensorDesc<f32>, filter_desc: CudnnFilterDesc<f32>, conv_desc: CudnnConvDesc, mut dst_desc: CudnnTensorDesc<f32>, handle: &CudnnHandle) -> CudnnResult<CudnnConvFwdOp> {
     let mut count: c_int = 0;
     let mut inner: cudnnConvolutionFwdAlgoPerf_t = Default::default();
     let status = unsafe { cudnnFindConvolutionForwardAlgorithm(
@@ -210,8 +243,36 @@ impl CudnnConvFwdOp {
         &mut inner as *mut _,
     ) };
     //println!("DEBUG: perf: {:?}", inner);
+
+    let mut workspace_size = inner.memory as usize;
+    let batch_size = src_desc.batch_size;
+    assert_eq!(batch_size, dst_desc.batch_size);
+    for s in 1 .. batch_size {
+      src_desc.set_batch_size(s).unwrap();
+      dst_desc.set_batch_size(s).unwrap();
+      let mut tmp_size = 0;
+      let status = unsafe { cudnnGetConvolutionForwardWorkspaceSize(
+          handle.ptr,
+          //tmp_src_desc.ptr,
+          src_desc.ptr,
+          filter_desc.ptr,
+          conv_desc.ptr,
+          //tmp_dst_desc.ptr,
+          dst_desc.ptr,
+          inner.algo,
+          &mut tmp_size as *mut _,
+      ) };
+      //assert!(status.is_ok());
+      workspace_size = max(workspace_size, tmp_size);
+    }
+    src_desc.set_batch_size(batch_size).unwrap();
+    dst_desc.set_batch_size(batch_size).unwrap();
+
     new_result(CudnnConvFwdOp{
-      algo: inner.algo, work_size: inner.memory as usize, time_ms: inner.time,
+      algo: inner.algo,
+      //work_size: inner.memory as usize,
+      work_size: workspace_size,
+      time_ms: inner.time,
       src_desc: src_desc,
       filter_desc: filter_desc,
       conv_desc: conv_desc,
@@ -262,7 +323,7 @@ pub struct CudnnConvBwdFilterOp {
 }
 
 impl CudnnConvBwdFilterOp {
-  pub fn create_fastest(src_desc: CudnnTensorDesc<f32>, diff_desc: CudnnTensorDesc<f32>, conv_desc: CudnnConvDesc, grad_filter_desc: CudnnFilterDesc<f32>, grad_bias_desc: CudnnTensorDesc<f32>, handle: &CudnnHandle) -> CudnnResult<CudnnConvBwdFilterOp> {
+  pub fn create_fastest(mut src_desc: CudnnTensorDesc<f32>, mut diff_desc: CudnnTensorDesc<f32>, conv_desc: CudnnConvDesc, grad_filter_desc: CudnnFilterDesc<f32>, grad_bias_desc: CudnnTensorDesc<f32>, handle: &CudnnHandle) -> CudnnResult<CudnnConvBwdFilterOp> {
     let mut count: c_int = 0;
     let mut inner: cudnnConvolutionBwdFilterAlgoPerf_t = Default::default();
     let status = unsafe { cudnnFindConvolutionBackwardFilterAlgorithm(
@@ -275,8 +336,34 @@ impl CudnnConvBwdFilterOp {
         &mut inner as *mut _,
     ) };
     //println!("DEBUG: perf: {:?}", inner);
+
+    let mut workspace_size = inner.memory as usize;
+    let batch_size = src_desc.batch_size;
+    assert_eq!(batch_size, diff_desc.batch_size);
+    for s in 1 .. batch_size {
+      src_desc.set_batch_size(s).unwrap();
+      diff_desc.set_batch_size(s).unwrap();
+      let mut tmp_size = 0;
+      let status = unsafe { cudnnGetConvolutionBackwardFilterWorkspaceSize(
+          handle.ptr,
+          src_desc.ptr,
+          diff_desc.ptr,
+          conv_desc.ptr,
+          grad_filter_desc.ptr,
+          inner.algo,
+          &mut tmp_size as *mut _,
+      ) };
+      //assert!(status.is_ok());
+      workspace_size = max(workspace_size, tmp_size);
+    }
+    src_desc.set_batch_size(batch_size).unwrap();
+    diff_desc.set_batch_size(batch_size).unwrap();
+
     new_result(CudnnConvBwdFilterOp{
-      algo: inner.algo, work_size: inner.memory as usize, time_ms: inner.time,
+      algo: inner.algo,
+      //work_size: inner.memory as usize,
+      work_size: workspace_size,
+      time_ms: inner.time,
       src_desc: src_desc,
       diff_desc: diff_desc,
       conv_desc: conv_desc,
@@ -285,8 +372,8 @@ impl CudnnConvBwdFilterOp {
     }, status)
   }
 
-  pub unsafe fn backward_filter(&self, in_act: *const f32, out_delta: *const f32, grad_filter_accum: *mut f32, work_space: *mut u8, handle: &CudnnHandle) -> CudnnResult<()> {
-    let alpha: f32 = 1.0;
+  pub unsafe fn backward_filter(&self, scale: f32, in_act: *const f32, out_delta: *const f32, grad_filter_accum: *mut f32, work_space: *mut u8, handle: &CudnnHandle) -> CudnnResult<()> {
+    let alpha: f32 = scale;
     let beta: f32 = 1.0;
     let status = unsafe { cudnnConvolutionBackwardFilter(
         handle.ptr,
@@ -306,8 +393,8 @@ impl CudnnConvBwdFilterOp {
     new_result((), status)
   }
 
-  pub unsafe fn backward_bias(&self, out_delta: *const f32, grad_bias_accum: *mut f32, handle: &CudnnHandle) -> CudnnResult<()> {
-    let alpha: f32 = 1.0;
+  pub unsafe fn backward_bias(&self, scale: f32, out_delta: *const f32, grad_bias_accum: *mut f32, handle: &CudnnHandle) -> CudnnResult<()> {
+    let alpha: f32 = scale;
     let beta: f32 = 1.0;
     let status = unsafe { cudnnConvolutionBackwardBias(
         handle.ptr,
@@ -342,7 +429,7 @@ pub struct CudnnConvBwdDataOp {
 }
 
 impl CudnnConvBwdDataOp {
-  pub fn create_fastest(filter_desc: CudnnFilterDesc<f32>, diff_desc: CudnnTensorDesc<f32>, conv_desc: CudnnConvDesc, grad_desc: CudnnTensorDesc<f32>, handle: &CudnnHandle) -> CudnnResult<CudnnConvBwdDataOp> {
+  pub fn create_fastest(filter_desc: CudnnFilterDesc<f32>, mut diff_desc: CudnnTensorDesc<f32>, conv_desc: CudnnConvDesc, grad_desc: CudnnTensorDesc<f32>, handle: &CudnnHandle) -> CudnnResult<CudnnConvBwdDataOp> {
     let mut count: c_int = 0;
     let mut inner: cudnnConvolutionBwdDataAlgoPerf_t = Default::default();
     let status = unsafe { cudnnFindConvolutionBackwardDataAlgorithm(
@@ -355,8 +442,31 @@ impl CudnnConvBwdDataOp {
         &mut inner as *mut _,
     ) };
     //println!("DEBUG: perf: {:?}", inner);
+
+    let mut workspace_size = inner.memory as usize;
+    let batch_size = diff_desc.batch_size;
+    for s in 1 .. batch_size {
+      diff_desc.set_batch_size(s).unwrap();
+      let mut tmp_size = 0;
+      let status = unsafe { cudnnGetConvolutionBackwardDataWorkspaceSize(
+          handle.ptr,
+          filter_desc.ptr,
+          diff_desc.ptr,
+          conv_desc.ptr,
+          grad_desc.ptr,
+          inner.algo,
+          &mut tmp_size as *mut _,
+      ) };
+      //assert!(status.is_ok());
+      workspace_size = max(workspace_size, tmp_size);
+    }
+    diff_desc.set_batch_size(batch_size).unwrap();
+
     new_result(CudnnConvBwdDataOp{
-      algo: inner.algo, work_size: inner.memory as usize, time_ms: inner.time,
+      algo: inner.algo,
+      //work_size: inner.memory as usize,
+      work_size: workspace_size,
+      time_ms: inner.time,
       filter_desc: filter_desc,
       diff_desc: diff_desc,
       conv_desc: conv_desc,
@@ -419,6 +529,11 @@ impl CudnnAddOp {
       bias_desc:    bias_desc,
       src_dst_desc: src_dst_desc,
     }
+  }
+
+  pub fn set_batch_size(&mut self, new_batch_size: usize) -> CudnnResult<()> {
+    let res = self.src_dst_desc.set_batch_size(new_batch_size);
+    res
   }
 
   pub unsafe fn forward(&self, bias: *const f32, src_dst: *mut f32, handle: &CudnnHandle) -> CudnnResult<()> {
@@ -525,6 +640,15 @@ impl CudnnSoftmaxOp {
       src_desc: in_act_desc,
       dst_desc: prob_act_desc,
     }
+  }
+
+  pub fn set_batch_size(&mut self, new_batch_size: usize) -> CudnnResult<()> {
+    let res = self.src_desc.set_batch_size(new_batch_size);
+    if res.is_err() {
+      return res;
+    }
+    let res = self.dst_desc.set_batch_size(new_batch_size);
+    res
   }
 
   pub unsafe fn forward(&self, in_act: *const f32, out_act: *mut f32, handle: &CudnnHandle) -> CudnnResult<()> {
