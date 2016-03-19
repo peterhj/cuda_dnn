@@ -280,6 +280,45 @@ impl CudnnConvFwdOp {
     }, status)
   }
 
+  pub fn create_algo(algo: cudnnConvolutionFwdAlgo_t, mut src_desc: CudnnTensorDesc<f32>, filter_desc: CudnnFilterDesc<f32>, conv_desc: CudnnConvDesc, mut dst_desc: CudnnTensorDesc<f32>, handle: &CudnnHandle) -> CudnnResult<CudnnConvFwdOp> {
+    let mut status = cudnnStatus_t::Success;
+
+    let mut workspace_size: usize = 0;
+    let batch_size = src_desc.batch_size;
+    assert_eq!(batch_size, dst_desc.batch_size);
+    for s in 1 .. batch_size + 1 {
+      src_desc.set_batch_size(s).unwrap();
+      dst_desc.set_batch_size(s).unwrap();
+      let mut tmp_size = 0;
+      status = unsafe { cudnnGetConvolutionForwardWorkspaceSize(
+          handle.ptr,
+          //tmp_src_desc.ptr,
+          src_desc.ptr,
+          filter_desc.ptr,
+          conv_desc.ptr,
+          //tmp_dst_desc.ptr,
+          dst_desc.ptr,
+          algo,
+          &mut tmp_size as *mut _,
+      ) };
+      //assert!(status.is_ok());
+      workspace_size = max(workspace_size, tmp_size);
+    }
+    src_desc.set_batch_size(batch_size).unwrap();
+    dst_desc.set_batch_size(batch_size).unwrap();
+
+    new_result(CudnnConvFwdOp{
+      algo: algo,
+      //work_size: inner.memory as usize,
+      work_size: workspace_size,
+      time_ms: 0.0,
+      src_desc: src_desc,
+      filter_desc: filter_desc,
+      conv_desc: conv_desc,
+      dst_desc: dst_desc,
+    }, status)
+  }
+
   pub unsafe fn forward(&self, in_act: *const f32, filter: *const f32, out_act: *mut f32, work_space: *mut u8, handle: &CudnnHandle) -> CudnnResult<()> {
     let alpha: f32 = 1.0;
     let beta: f32 = 0.0;
