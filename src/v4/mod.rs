@@ -726,3 +726,96 @@ impl CudnnSoftmaxOp {
     new_result((), status)
   }*/
 }
+
+pub struct CudnnPoolingOp {
+  pooling_desc: cudnnPoolingDescriptor_t,
+  src_desc:         CudnnTensorDesc<f32>,
+  src_diff_desc:    CudnnTensorDesc<f32>,
+  dst_desc:         CudnnTensorDesc<f32>,
+  dst_diff_desc:    CudnnTensorDesc<f32>,
+}
+
+impl CudnnPoolingOp {
+  pub fn create_2d_symmetric(src_desc: CudnnTensorDesc<f32>, src_diff_desc: CudnnTensorDesc<f32>, dst_desc: CudnnTensorDesc<f32>, dst_diff_desc: CudnnTensorDesc<f32>, pool_size: usize, pool_stride: usize, pool_pad: usize, pooling_mode: cudnnPoolingMode_t) -> CudnnResult<CudnnPoolingOp> {
+    let mut pooling_desc: cudnnPoolingDescriptor_t = null_mut();
+    let status = unsafe { cudnnCreatePoolingDescriptor(&mut pooling_desc as *mut _) };
+    let result = new_result((), status);
+    if result.is_err() {
+      return Err(status);
+    }
+    let status = unsafe { cudnnSetPooling2dDescriptor_v4(
+        pooling_desc,
+        pooling_mode,
+        cudnnNanPropagation_t::NotPropagateNan, // FIXME(20160330): ???
+        pool_size as i32,
+        pool_size as i32,
+        pool_pad as i32,
+        pool_pad as i32,
+        pool_stride as i32,
+        pool_stride as i32,
+    ) };
+    if result.is_err() {
+      return Err(status);
+    }
+    Ok(CudnnPoolingOp{
+      pooling_desc: pooling_desc,
+      src_desc:         src_desc,
+      src_diff_desc:    src_diff_desc,
+      dst_desc:         dst_desc,
+      dst_diff_desc:    dst_diff_desc,
+    })
+  }
+
+  pub fn set_batch_size(&mut self, new_batch_size: usize) -> CudnnResult<()> {
+    let res = self.src_desc.set_batch_size(new_batch_size);
+    if res.is_err() {
+      return res;
+    }
+    let res = self.src_diff_desc.set_batch_size(new_batch_size);
+    if res.is_err() {
+      return res;
+    }
+    let res = self.dst_desc.set_batch_size(new_batch_size);
+    if res.is_err() {
+      return res;
+    }
+    let res = self.dst_diff_desc.set_batch_size(new_batch_size);
+    res
+  }
+
+  pub unsafe fn forward(&self, in_act: *const f32, out_act: *mut f32, handle: &CudnnHandle) -> CudnnResult<()> {
+    let alpha: f32 = 1.0;
+    let beta: f32 = 0.0;
+    let status = unsafe { cudnnPoolingForward(
+        handle.ptr,
+        self.pooling_desc,
+        &alpha as *const f32 as *const c_void,
+        self.src_desc.ptr,
+        in_act as *const c_void,
+        &beta as *const f32 as *const c_void,
+        self.dst_desc.ptr,
+        out_act as *mut c_void,
+    ) };
+    new_result((), status)
+  }
+
+  pub unsafe fn backward(&self, in_act: *const f32, out_act: *const f32, out_delta: *const f32, in_delta: *mut f32, handle: &CudnnHandle) -> CudnnResult<()> {
+    let alpha: f32 = 1.0;
+    let beta: f32 = 0.0;
+    let status = unsafe { cudnnPoolingBackward(
+        handle.ptr,
+        self.pooling_desc,
+        &alpha as *const f32 as *const c_void,
+        self.dst_desc.ptr,
+        out_act as *const c_void,
+        self.dst_diff_desc.ptr,
+        out_delta as *const c_void,
+        self.src_desc.ptr,
+        in_act as *const c_void,
+        &beta as *const f32 as *const c_void,
+        self.src_diff_desc.ptr,
+        in_delta as *mut c_void,
+    ) };
+    new_result((), status)
+  }
+}

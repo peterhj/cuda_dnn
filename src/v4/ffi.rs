@@ -28,28 +28,22 @@ impl Default for cudnnStatus_t {
   }
 }
 
-#[repr(C)]
-struct cudnnTensorStruct;
+enum cudnnTensorStruct {}
 pub type cudnnTensorDescriptor_t = *mut cudnnTensorStruct;
 
-#[repr(C)]
-struct cudnnConvolutionStruct;
+enum cudnnConvolutionStruct {}
 pub type cudnnConvolutionDescriptor_t = *mut cudnnConvolutionStruct;
 
-#[repr(C)]
-struct cudnnPoolingStruct;
+enum cudnnPoolingStruct {}
 pub type cudnnPoolingDescriptor_t = *mut cudnnPoolingStruct;
 
-#[repr(C)]
-struct cudnnFilterStruct;
+enum cudnnFilterStruct {}
 pub type cudnnFilterDescriptor_t = *mut cudnnFilterStruct;
 
-#[repr(C)]
-struct cudnnLRNStruct;
+enum cudnnLRNStruct {}
 pub type cudnnLRNDescriptor_t = *mut cudnnLRNStruct;
 
-#[repr(C)]
-struct cudnnActivationStruct;
+enum cudnnActivationStruct {}
 pub type cudnnActivationDescriptor_t = *mut cudnnActivationStruct;
 
 #[derive(Clone, Copy)]
@@ -283,6 +277,19 @@ extern "C" {
       relu_nan_opt: cudnnNanPropagation_t,
       relu_ceiling: f64,
   ) -> cudnnStatus_t;
+  pub fn cudnnCreatePoolingDescriptor(pooling_desc: *mut cudnnPoolingDescriptor_t) -> cudnnStatus_t;
+  pub fn cudnnDestroyPoolingDescriptor(pooling_desc: cudnnPoolingDescriptor_t) -> cudnnStatus_t;
+  pub fn cudnnSetPooling2dDescriptor_v4(
+      pooling_desc: cudnnPoolingDescriptor_t,
+      mode: cudnnPoolingMode_t,
+      maxpooling_nan_opt: cudnnNanPropagation_t,
+      window_height: c_int,
+      window_width: c_int,
+      vertical_padding: c_int,
+      horizontal_padding: c_int,
+      vertical_stride: c_int,
+      horizontal_stride: c_int,
+  ) -> cudnnStatus_t;
 
   // TODO
 
@@ -481,6 +488,31 @@ extern "C" {
       beta: *const c_void,
       dst_diff_desc: cudnnTensorDescriptor_t,
       dst_diff_data: *mut c_void,
+  ) -> cudnnStatus_t;
+
+  pub fn cudnnPoolingForward(
+      handle: cudnnHandle_t,
+      pooling_desc: cudnnPoolingDescriptor_t,
+      alpha: *const c_void,
+      x_desc: cudnnTensorDescriptor_t,
+      x: *const c_void,
+      beta: *const c_void,
+      y_desc: cudnnTensorDescriptor_t,
+      y: *mut c_void,
+  ) -> cudnnStatus_t;
+  pub fn cudnnPoolingBackward(
+      handle: cudnnHandle_t,
+      pooling_desc: cudnnPoolingDescriptor_t,
+      alpha: *const c_void,
+      y_desc: cudnnTensorDescriptor_t,
+      y: *const c_void,
+      dy_desc: cudnnTensorDescriptor_t,
+      dy: *const c_void,
+      x_desc: cudnnTensorDescriptor_t,
+      x: *const c_void,
+      beta: *const c_void,
+      dx_desc: cudnnTensorDescriptor_t,
+      dx: *mut c_void,
   ) -> cudnnStatus_t;
 
   // TODO
