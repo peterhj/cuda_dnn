@@ -2,8 +2,7 @@ use cuda::ffi::runtime::{cudaStream_t};
 
 use libc::{c_void, c_char, c_int, c_float, size_t};
 
-#[repr(C)]
-struct cudnnContext;
+enum cudnnContext {}
 pub type cudnnHandle_t = *mut cudnnContext;
 
 #[derive(Clone, Copy, Debug)]
@@ -25,6 +24,16 @@ pub enum cudnnStatus_t {
 impl Default for cudnnStatus_t {
   fn default() -> cudnnStatus_t {
     cudnnStatus_t::Success
+  }
+}
+
+impl cudnnStatus_t {
+  pub fn is_err(&self) -> bool {
+    if let cudnnStatus_t::Success = *self {
+      false
+    } else {
+      true
+    }
   }
 }
 
@@ -237,6 +246,30 @@ extern "C" {
       c: c_int,
       h: c_int,
       w: c_int,
+  ) -> cudnnStatus_t;
+  pub fn cudnnSetTensor4dDescriptorEx(
+      tensor_desc: cudnnTensorDescriptor_t,
+      data_ty: cudnnDataType_t,
+      n: c_int,
+      c: c_int,
+      h: c_int,
+      w: c_int,
+      n_stride: c_int,
+      c_stride: c_int,
+      h_stride: c_int,
+      w_stride: c_int,
+  ) -> cudnnStatus_t;
+  pub fn cudnnGetTensor4dDescriptor(
+      tensor_desc: cudnnTensorDescriptor_t,
+      data_ty: *mut cudnnDataType_t,
+      n: *mut c_int,
+      c: *mut c_int,
+      h: *mut c_int,
+      w: *mut c_int,
+      n_stride: *mut c_int,
+      c_stride: *mut c_int,
+      h_stride: *mut c_int,
+      w_stride: *mut c_int,
   ) -> cudnnStatus_t;
   pub fn cudnnCreateFilterDescriptor(filter_desc: *mut cudnnFilterDescriptor_t) -> cudnnStatus_t;
   pub fn cudnnDestroyFilterDescriptor(filter_desc: cudnnFilterDescriptor_t) -> cudnnStatus_t;
@@ -513,6 +546,16 @@ extern "C" {
       beta: *const c_void,
       dx_desc: cudnnTensorDescriptor_t,
       dx: *mut c_void,
+  ) -> cudnnStatus_t;
+
+  pub fn cudnnTransformTensor(
+      handle: cudnnHandle_t,
+      alpha: *const c_void,
+      x_desc: cudnnTensorDescriptor_t,
+      x: *const c_void,
+      beta: *const c_void,
+      y_desc: cudnnTensorDescriptor_t,
+      y: *mut c_void,
   ) -> cudnnStatus_t;
 
   // TODO

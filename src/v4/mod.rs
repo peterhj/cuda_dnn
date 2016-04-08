@@ -67,39 +67,116 @@ impl Drop for CudnnHandle {
 }
 
 pub struct CudnnTensorDesc<T> where T: CudnnDataTypeExt {
-  ptr:        cudnnTensorDescriptor_t,
-  width:      usize,
-  height:     usize,
-  channels:   usize,
-  batch_size: usize,
-  _marker:    PhantomData<T>,
+  ptr:          cudnnTensorDescriptor_t,
+  width:        usize,
+  height:       usize,
+  channels:     usize,
+  batch_size:   usize,
+  s_width:      usize,
+  s_height:     usize,
+  s_channels:   usize,
+  s_batch_size: usize,
+  _marker:      PhantomData<T>,
 }
 
 impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
   pub fn create_4d(width: usize, height: usize, channels: usize, num: usize) -> CudnnResult<CudnnTensorDesc<f32>> {
     let mut inner: cudnnTensorDescriptor_t = null_mut();
     let status = unsafe { cudnnCreateTensorDescriptor(&mut inner as *mut _) };
-    new_result(CudnnTensorDesc{
+    if status.is_err() {
+      return Err(status);
+    }
+    let status = unsafe { cudnnSetTensor4dDescriptor(
+        inner,
+        // FIXME(20151001): may want to specify data layout.
+        cudnnTensorFormat_t::RowMajorNCHW,
+        T::data_ty(),
+        num as c_int,
+        channels as c_int,
+        height as c_int,
+        width as c_int,
+    ) };
+    if status.is_err() {
+      return Err(status);
+    }
+    /*let mut _data_ty = cudnnDataType_t::Float;
+    let mut _n = 0;
+    let mut _c = 0;
+    let mut _h = 0;
+    let mut _w = 0;
+    let mut _n_stride = 0;
+    let mut _c_stride = 0;
+    let mut _h_stride = 0;
+    let mut _w_stride = 0;
+    let status = unsafe { cudnnGetTensor4dDescriptor(
+        inner,
+        &mut _data_ty as *mut _,
+        &mut _n as *mut _,
+        &mut _c as *mut _,
+        &mut _h as *mut _,
+        &mut _w as *mut _,
+        &mut _n_stride as *mut _,
+        &mut _c_stride as *mut _,
+        &mut _h_stride as *mut _,
+        &mut _w_stride as *mut _,
+    ) };
+    if status.is_err() {
+      panic!("failed debug call to cudnnGetTensor4dDescriptor");
+    }
+    println!("DEBUG: create_4d: dims: {} {} {} {} stride: {} {} {} {}",
+        _w, _h, _c, _n,
+        _w_stride, _h_stride, _c_stride, _n_stride,
+    );*/
+    Ok(CudnnTensorDesc{
       ptr: inner,
       width: width,
       height: height,
       channels: channels,
       batch_size: num,
+      s_width:      1,
+      s_height:     width,
+      s_channels:   width * height,
+      s_batch_size: width * height * channels,
       _marker: PhantomData,
-    }, status)
-      .and_then(|desc| {
-        let status = unsafe { cudnnSetTensor4dDescriptor(
-            desc.ptr,
-            // FIXME(20151001): may want to specify data layout.
-            cudnnTensorFormat_t::RowMajorNCHW,
-            T::data_ty(),
-            num as c_int,
-            channels as c_int,
-            height as c_int,
-            width as c_int,
-        ) };
-        new_result(desc, status)
-      })
+    })
+  }
+
+  pub fn create_4d_strided(
+      width: usize, height: usize, channels: usize, batch_size: usize,
+      s_width: usize, s_height: usize, s_channels: usize, s_batch_size: usize,
+  ) -> CudnnResult<CudnnTensorDesc<f32>> {
+    let mut inner: cudnnTensorDescriptor_t = null_mut();
+    let status = unsafe { cudnnCreateTensorDescriptor(&mut inner as *mut _) };
+    if status.is_err() {
+      return Err(status);
+    }
+    let status = unsafe { cudnnSetTensor4dDescriptorEx(
+        inner,
+        T::data_ty(),
+        batch_size as c_int,
+        channels as c_int,
+        height as c_int,
+        width as c_int,
+        s_batch_size as c_int,
+        s_channels as c_int,
+        s_height as c_int,
+        s_width as c_int,
+    ) };
+    if status.is_err() {
+      return Err(status);
+    }
+    Ok(CudnnTensorDesc{
+      ptr:          inner,
+      width:        width,
+      height:       height,
+      channels:     channels,
+      batch_size:   batch_size,
+      s_width:      s_width,
+      s_height:     s_height,
+      s_channels:   s_channels,
+      s_batch_size: s_batch_size,
+      _marker: PhantomData,
+    })
   }
 
   pub fn set_batch_size(&mut self, new_batch_size: usize) -> CudnnResult<()> {
@@ -817,5 +894,35 @@ impl CudnnPoolingOp {
         in_delta as *mut c_void,
     ) };
     new_result((), status)
+  }
+}
+
+pub struct CudnnTransformOp {
+  src_desc: CudnnTensorDesc<f32>,
+  dst_desc: CudnnTensorDesc<f32>,
+}
+
+impl CudnnTransformOp {
+  pub fn new(src_desc: CudnnTensorDesc<f32>, dst_desc: CudnnTensorDesc<f32>) -> CudnnTransformOp {
+    CudnnTransformOp{
+      src_desc: src_desc,
+      dst_desc: dst_desc,
+    }
+  }
+
+  pub unsafe fn transform(&self, alpha: f32, src_data: *const f32, beta: f32, dst_data: *mut f32, handle: &CudnnHandle) -> CudnnResult<()> {
+    let status = unsafe { cudnnTransformTensor(
+        handle.ptr,
+        &alpha as *const f32 as *const c_void,
+        self.src_desc.ptr,
+        src_data as *const c_void,
+        &beta as *const f32 as *const c_void,
+        self.dst_desc.ptr,
+        dst_data as *mut c_void,
+    ) };
+    if status.is_err() {
+      return Err(status);
+    }
+    Ok(())
   }
 }
