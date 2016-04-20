@@ -225,6 +225,13 @@ pub enum cudnnNanPropagation_t {
   PropagateNan    = 1,
 }
 
+#[derive(Clone, Copy)]
+#[repr(C)]
+pub enum cudnnBatchNormMode_t {
+  PerActivation = 0,
+  Spatial       = 1,
+}
+
 #[link(name = "cudnn", kind = "dylib")]
 extern "C" {
   pub fn cudnnGetVersion() -> size_t;
@@ -556,6 +563,63 @@ extern "C" {
       beta: *const c_void,
       y_desc: cudnnTensorDescriptor_t,
       y: *mut c_void,
+  ) -> cudnnStatus_t;
+
+  pub fn cudnnBatchNormalizationForwardInference(
+      handle: cudnnHandle_t,
+      mode: cudnnBatchNormMode_t,
+      alpha: *const c_void,
+      beta: *const c_void,
+      x_desc: cudnnTensorDescriptor_t,
+      x: *const c_void,
+      y_desc: cudnnTensorDescriptor_t,
+      y: *mut c_void,
+      bn_scale_bias_mean_var_desc: cudnnTensorDescriptor_t,
+      bn_scale: *const c_void,
+      bn_bias: *const c_void,
+      estimated_mean: *const c_void,
+      estimated_inv_variance: *const c_void,
+      epsilon: f64,
+  ) -> cudnnStatus_t;
+  pub fn cudnnBatchNormalizationForwardTraining(
+      handle: cudnnHandle_t,
+      mode: cudnnBatchNormMode_t,
+      alpha: *const c_void,
+      beta: *const c_void,
+      x_desc: cudnnTensorDescriptor_t,
+      x: *const c_void,
+      y_desc: cudnnTensorDescriptor_t,
+      y: *mut c_void,
+      bn_scale_bias_mean_var_desc: cudnnTensorDescriptor_t,
+      bn_scale: *const c_void,
+      bn_bias: *const c_void,
+      exponential_average_factor: f64,
+      result_running_mean: *mut c_void,
+      result_running_inv_variance: *mut c_void,
+      epsilon: f64,
+      result_save_mean: *mut c_void,
+      result_save_inv_variance: *mut c_void,
+  ) -> cudnnStatus_t;
+  pub fn cudnnBatchNormalizationBackward(
+      handle: cudnnHandle_t,
+      mode: cudnnBatchNormMode_t,
+      alpha_data_diff: *const c_void,
+      beta_data_diff: *const c_void,
+      alpha_param_diff: *const c_void,
+      beta_param_diff: *const c_void,
+      x_desc: cudnnTensorDescriptor_t,
+      x: *const c_void,
+      dy_desc: cudnnTensorDescriptor_t,
+      dy: *const c_void,
+      dx_desc: cudnnTensorDescriptor_t,
+      dx: *mut c_void,
+      bn_scale_bias_mean_var_desc: cudnnTensorDescriptor_t,
+      bn_scale: *const c_void,
+      result_bn_scale_diff: *mut c_void,
+      result_bn_bias_diff: *mut c_void,
+      epsilon: f64,
+      saved_mean: *const c_void,
+      saved_inv_variance: *const c_void,
   ) -> cudnnStatus_t;
 
   // TODO

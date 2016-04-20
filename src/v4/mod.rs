@@ -926,3 +926,162 @@ impl CudnnTransformOp {
     Ok(())
   }
 }
+
+pub struct CudnnBatchNormOp {
+  bn_mode:      cudnnBatchNormMode_t,
+  x_desc:       CudnnTensorDesc<f32>,
+  dx_desc:      CudnnTensorDesc<f32>,
+  y_desc:       CudnnTensorDesc<f32>,
+  dy_desc:      CudnnTensorDesc<f32>,
+  stat_desc:    CudnnTensorDesc<f32>,
+}
+
+impl CudnnBatchNormOp {
+  pub fn new(x_desc: CudnnTensorDesc<f32>, dx_desc: CudnnTensorDesc<f32>, y_desc: CudnnTensorDesc<f32>, dy_desc: CudnnTensorDesc<f32>, stat_desc: CudnnTensorDesc<f32>, batch_norm_mode: cudnnBatchNormMode_t) -> CudnnBatchNormOp {
+    CudnnBatchNormOp{
+      bn_mode:      batch_norm_mode,
+      x_desc:       x_desc,
+      dx_desc:      dx_desc,
+      y_desc:       y_desc,
+      dy_desc:      dy_desc,
+      stat_desc:    stat_desc,
+    }
+  }
+
+  pub fn set_batch_size(&mut self, new_batch_size: usize) -> CudnnResult<()> {
+    let res = self.x_desc.set_batch_size(new_batch_size);
+    if res.is_err() {
+      return res;
+    }
+    let res = self.dx_desc.set_batch_size(new_batch_size);
+    if res.is_err() {
+      return res;
+    }
+    let res = self.y_desc.set_batch_size(new_batch_size);
+    if res.is_err() {
+      return res;
+    }
+    let res = self.dy_desc.set_batch_size(new_batch_size);
+    if res.is_err() {
+      return res;
+    }
+    Ok(())
+  }
+
+  pub unsafe fn forward_inference(&self,
+      alpha: f32,
+      x_data: *const f32,
+      beta: f32,
+      y_data: *mut f32,
+      epsilon: f64,
+      bn_scale: *const f32,
+      bn_bias: *const f32,
+      bn_cached_mean: *const f32,
+      bn_cached_ivar: *const f32,
+      handle: &CudnnHandle,
+  ) -> CudnnResult<()> {
+    let status = unsafe { cudnnBatchNormalizationForwardInference(
+        handle.ptr,
+        self.bn_mode,
+        &alpha as *const f32 as *const _,
+        &beta as *const f32 as *const _,
+        self.x_desc.ptr,
+        x_data as *const _,
+        self.y_desc.ptr,
+        y_data as *mut _,
+        self.stat_desc.ptr,
+        bn_scale as *const _,
+        bn_bias as *const _,
+        bn_cached_mean as *const _,
+        bn_cached_ivar as *const _,
+        epsilon,
+    ) };
+    if status.is_err() {
+      return Err(status);
+    }
+    Ok(())
+  }
+
+  pub unsafe fn forward_training(&self,
+      alpha: f32,
+      x_data: *const f32,
+      beta: f32,
+      y_data: *mut f32,
+      ema_factor: f64, // XXX(20160420): must be one on the very first call!
+      epsilon: f64,
+      bn_scale: *const f32,
+      bn_bias: *const f32,
+      bn_running_mean: *mut f32,
+      bn_running_ivar: *mut f32,
+      bn_cached_mean: *mut f32,
+      bn_cached_ivar: *mut f32,
+      handle: &CudnnHandle,
+  ) -> CudnnResult<()> {
+    let status = unsafe { cudnnBatchNormalizationForwardTraining(
+        handle.ptr,
+        self.bn_mode,
+        &alpha as *const f32 as *const _,
+        &beta as *const f32 as *const _,
+        self.x_desc.ptr,
+        x_data as *const _,
+        self.y_desc.ptr,
+        y_data as *mut _,
+        self.stat_desc.ptr,
+        bn_scale as *const _,
+        bn_bias as *const _,
+        ema_factor,
+        bn_running_mean as *mut _,
+        bn_running_ivar as *mut _,
+        epsilon,
+        bn_cached_mean as *mut _,
+        bn_cached_ivar as *mut _,
+    ) };
+    if status.is_err() {
+      return Err(status);
+    }
+    Ok(())
+  }
+
+  pub unsafe fn backward(&self,
+      dx_alpha: f32,
+      dx_beta:  f32,
+      x_data: *const f32,
+      dy_data: *const f32,
+      dx_data: *mut f32,
+      stat_alpha: f32,
+      stat_beta:  f32,
+      epsilon:  f64,
+      bn_scale: *const f32,
+      bn_scale_delta: *mut f32,
+      bn_bias_delta: *mut f32,
+      bn_cached_mean: *const f32,
+      bn_cached_ivar: *const f32,
+      handle: &CudnnHandle,
+  ) -> CudnnResult<()> {
+    let status = unsafe { cudnnBatchNormalizationBackward(
+        handle.ptr,
+        self.bn_mode,
+        &dx_alpha as *const f32 as *const _,
+        &dx_beta as *const f32 as *const _,
+        &stat_alpha as *const f32 as *const _,
+        &stat_beta as *const f32 as *const _,
+        self.x_desc.ptr,
+        x_data as *const _,
+        self.dy_desc.ptr,
+        dy_data as *const _,
+        self.dx_desc.ptr,
+        dx_data as *mut _,
+        self.stat_desc.ptr,
+        bn_scale as *const _,
+        bn_scale_delta as *mut _,
+        bn_bias_delta as *mut _,
+        epsilon,
+        bn_cached_mean as *const _,
+        bn_cached_ivar as *const _,
+    ) };
+    if status.is_err() {
+      return Err(status);
+    }
+    Ok(())
+  }
+}
