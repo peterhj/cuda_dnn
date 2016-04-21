@@ -652,9 +652,9 @@ impl CudnnAddOp {
     res
   }
 
-  pub unsafe fn forward(&self, bias: *const f32, src_dst: *mut f32, handle: &CudnnHandle) -> CudnnResult<()> {
-    let alpha: f32 = 1.0;
-    let beta: f32 = 1.0;
+  pub unsafe fn forward(&self, alpha: f32, bias: *const f32, beta: f32, src_dst: *mut f32, handle: &CudnnHandle) -> CudnnResult<()> {
+    /*let alpha: f32 = 1.0;
+    let beta: f32 = 1.0;*/
     let status = unsafe { cudnnAddTensor(
         handle.ptr,
         &alpha as *const f32 as *const c_void,
@@ -1052,8 +1052,8 @@ impl CudnnBatchNormOp {
       stat_beta:  f32,
       epsilon:  f64,
       bn_scale: *const f32,
-      bn_scale_delta: *mut f32,
-      bn_bias_delta: *mut f32,
+      bn_scale_grad: *mut f32,
+      bn_bias_grad: *mut f32,
       bn_cached_mean: *const f32,
       bn_cached_ivar: *const f32,
       handle: &CudnnHandle,
@@ -1073,8 +1073,8 @@ impl CudnnBatchNormOp {
         dx_data as *mut _,
         self.stat_desc.ptr,
         bn_scale as *const _,
-        bn_scale_delta as *mut _,
-        bn_bias_delta as *mut _,
+        bn_scale_grad as *mut _,
+        bn_bias_grad as *mut _,
         epsilon,
         bn_cached_mean as *const _,
         bn_cached_ivar as *const _,
