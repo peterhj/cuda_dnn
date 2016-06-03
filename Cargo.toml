@@ -16,4 +16,5 @@ path = "src/lib.rs"
 [dependencies]
 libc = "^0.2.*"
 float = "^0.1.*"
-cuda = { path = "../libcuda" }
+#cuda = { path = "../libcuda" }
+cuda = { git = "https://github.com/peterhj/libcuda.git" }
