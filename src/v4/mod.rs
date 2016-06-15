@@ -488,6 +488,42 @@ impl CudnnConvBwdFilterOp {
     }, status)
   }
 
+  pub fn create_algo(algo: cudnnConvolutionBwdFilterAlgo_t, mut src_desc: CudnnTensorDesc<f32>, mut diff_desc: CudnnTensorDesc<f32>, conv_desc: CudnnConvDesc, grad_filter_desc: CudnnFilterDesc<f32>, grad_bias_desc: CudnnTensorDesc<f32>, handle: &CudnnHandle) -> CudnnResult<CudnnConvBwdFilterOp> {
+    let mut status = cudnnStatus_t::Success;
+    let mut workspace_size = 0;
+    let batch_size = src_desc.batch_size;
+    assert_eq!(batch_size, diff_desc.batch_size);
+    for s in 1 .. batch_size + 1 {
+      src_desc.set_batch_size(s).unwrap();
+      diff_desc.set_batch_size(s).unwrap();
+      let mut tmp_size = 0;
+      let status = unsafe { cudnnGetConvolutionBackwardFilterWorkspaceSize(
+          handle.ptr,
+          src_desc.ptr,
+          diff_desc.ptr,
+          conv_desc.ptr,
+          grad_filter_desc.ptr,
+          algo,
+          &mut tmp_size as *mut _,
+      ) };
+      //assert!(status.is_ok());
+      workspace_size = max(workspace_size, tmp_size);
+    }
+    src_desc.set_batch_size(batch_size).unwrap();
+    diff_desc.set_batch_size(batch_size).unwrap();
+
+    new_result(CudnnConvBwdFilterOp{
+      algo: algo,
+      work_size: workspace_size,
+      time_ms: 0.0,
+      src_desc: src_desc,
+      diff_desc: diff_desc,
+      conv_desc: conv_desc,
+      grad_filter_desc: grad_filter_desc,
+      grad_bias_desc: grad_bias_desc,
+    }, status)
+  }
+
   pub unsafe fn backward_filter(&self, scale: f32, in_act: *const f32, out_delta: *const f32, prev_scale: f32, grad_filter_accum: *mut f32, work_space: *mut u8, handle: &CudnnHandle) -> CudnnResult<()> {
     let alpha: f32 = scale;
     let beta: f32 = prev_scale;
@@ -583,6 +619,38 @@ impl CudnnConvBwdDataOp {
       //work_size: inner.memory as usize,
       work_size: workspace_size,
       time_ms: inner.time,
+      filter_desc: filter_desc,
+      diff_desc: diff_desc,
+      conv_desc: conv_desc,
+      grad_desc: grad_desc,
+    }, status)
+  }
+
+  pub fn create_algo(algo: cudnnConvolutionBwdDataAlgo_t, filter_desc: CudnnFilterDesc<f32>, mut diff_desc: CudnnTensorDesc<f32>, conv_desc: CudnnConvDesc, grad_desc: CudnnTensorDesc<f32>, handle: &CudnnHandle) -> CudnnResult<CudnnConvBwdDataOp> {
+    let mut status = cudnnStatus_t::Success;
+    let mut workspace_size = 0;
+    let batch_size = diff_desc.batch_size;
+    for s in 1 .. batch_size + 1 {
+      diff_desc.set_batch_size(s).unwrap();
+      let mut tmp_size = 0;
+      let status = unsafe { cudnnGetConvolutionBackwardDataWorkspaceSize(
+          handle.ptr,
+          filter_desc.ptr,
+          diff_desc.ptr,
+          conv_desc.ptr,
+          grad_desc.ptr,
+          algo,
+          &mut tmp_size as *mut _,
+      ) };
+      //assert!(status.is_ok());
+      workspace_size = max(workspace_size, tmp_size);
+    }
+    diff_desc.set_batch_size(batch_size).unwrap();
+
+    new_result(CudnnConvBwdDataOp{
+      algo: algo,
+      work_size: workspace_size,
+      time_ms: 0.0,
       filter_desc: filter_desc,
       diff_desc: diff_desc,
       conv_desc: conv_desc,
