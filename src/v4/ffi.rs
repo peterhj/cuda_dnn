@@ -130,7 +130,7 @@ pub enum cudnnConvolutionBwdFilterPreference_t {
   SpecifyWorkspaceLimit = 2,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub enum cudnnConvolutionBwdFilterAlgo_t {
   NonDeterministic          = 0,
@@ -162,7 +162,7 @@ pub enum cudnnConvolutionBwdDataPreference_t {
   SpecifyWorkspaceLimit = 2,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub enum cudnnConvolutionBwdDataAlgo_t {
   NonDeterministic  = 0,
