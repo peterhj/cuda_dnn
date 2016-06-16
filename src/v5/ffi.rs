@@ -291,15 +291,6 @@ extern "C" {
       h: c_int,
       w: c_int,
   ) -> cudnnStatus_t;
-  pub fn cudnnSetFilter4dDescriptor_v4(
-      filter_desc: cudnnFilterDescriptor_t,
-      data_ty: cudnnDataType_t,
-      format: cudnnTensorFormat_t,
-      k: c_int,
-      c: c_int,
-      h: c_int,
-      w: c_int,
-  ) -> cudnnStatus_t;
   pub fn cudnnCreateConvolutionDescriptor(conv_desc: *mut cudnnConvolutionDescriptor_t) -> cudnnStatus_t;
   pub fn cudnnDestroyConvolutionDescriptor(conv_desc: cudnnConvolutionDescriptor_t) -> cudnnStatus_t;
   pub fn cudnnSetConvolution2dDescriptor(
@@ -322,7 +313,7 @@ extern "C" {
   ) -> cudnnStatus_t;
   pub fn cudnnCreatePoolingDescriptor(pooling_desc: *mut cudnnPoolingDescriptor_t) -> cudnnStatus_t;
   pub fn cudnnDestroyPoolingDescriptor(pooling_desc: cudnnPoolingDescriptor_t) -> cudnnStatus_t;
-  pub fn cudnnSetPooling2dDescriptor_v4(
+  pub fn cudnnSetPooling2dDescriptor(
       pooling_desc: cudnnPoolingDescriptor_t,
       mode: cudnnPoolingMode_t,
       maxpooling_nan_opt: cudnnNanPropagation_t,
@@ -459,7 +450,7 @@ extern "C" {
       src_dst_data: *mut c_void,
   ) -> cudnnStatus_t;
 
-  pub fn cudnnActivationForward(
+  pub fn cudnnActivationForward_v3(
       handle: cudnnHandle_t,
       mode: cudnnActivationMode_t,
       alpha: *const c_void,
@@ -479,7 +470,7 @@ extern "C" {
       dst_desc: cudnnTensorDescriptor_t,
       dst_data: *mut c_void,
   ) -> cudnnStatus_t;
-  pub fn cudnnActivationBackward(
+  pub fn cudnnActivationBackward_v3(
       handle: cudnnHandle_t,
       mode: cudnnActivationMode_t,
       alpha: *const c_void,

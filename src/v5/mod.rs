@@ -778,7 +778,7 @@ impl CudnnActOp {
   pub unsafe fn forward_in_place(&self, out_act: *mut f32, handle: &CudnnHandle) -> CudnnResult<()> {
     let alpha: f32 = 1.0;
     let beta: f32 = 0.0;
-    let status = unsafe { cudnnActivationForward(
+    let status = unsafe { cudnnActivationForward_v3(
         handle.ptr,
         self.mode,
         &alpha as *const f32 as *const c_void,
@@ -794,7 +794,7 @@ impl CudnnActOp {
   pub unsafe fn backward_in_place(&self, in_act: *const f32, out_act: *const f32, out_delta: *mut f32, handle: &CudnnHandle) -> CudnnResult<()> {
     let alpha: f32 = 1.0;
     let beta: f32 = 0.0;
-    let status = unsafe { cudnnActivationBackward(
+    let status = unsafe { cudnnActivationBackward_v3(
         handle.ptr,
         self.mode,
         &alpha as *const f32 as *const c_void,
@@ -889,7 +889,7 @@ impl CudnnPoolingOp {
     if result.is_err() {
       return Err(status);
     }
-    let status = unsafe { cudnnSetPooling2dDescriptor_v4(
+    let status = unsafe { cudnnSetPooling2dDescriptor(
         pooling_desc,
         pooling_mode,
         cudnnNanPropagation_t::NotPropagateNan, // FIXME(20160330): ???
