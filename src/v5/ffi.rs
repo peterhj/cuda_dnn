@@ -2,7 +2,7 @@ use cuda::ffi::runtime::{cudaStream_t};
 
 use libc::{c_void, c_char, c_int, c_float, size_t};
 
-enum cudnnContext {}
+pub enum cudnnContext {}
 pub type cudnnHandle_t = *mut cudnnContext;
 
 #[derive(Clone, Copy, Debug)]
@@ -37,22 +37,22 @@ impl cudnnStatus_t {
   }
 }
 
-enum cudnnTensorStruct {}
+pub enum cudnnTensorStruct {}
 pub type cudnnTensorDescriptor_t = *mut cudnnTensorStruct;
 
-enum cudnnConvolutionStruct {}
+pub enum cudnnConvolutionStruct {}
 pub type cudnnConvolutionDescriptor_t = *mut cudnnConvolutionStruct;
 
-enum cudnnPoolingStruct {}
+pub enum cudnnPoolingStruct {}
 pub type cudnnPoolingDescriptor_t = *mut cudnnPoolingStruct;
 
-enum cudnnFilterStruct {}
+pub enum cudnnFilterStruct {}
 pub type cudnnFilterDescriptor_t = *mut cudnnFilterStruct;
 
-enum cudnnLRNStruct {}
+pub enum cudnnLRNStruct {}
 pub type cudnnLRNDescriptor_t = *mut cudnnLRNStruct;
 
-enum cudnnActivationStruct {}
+pub enum cudnnActivationStruct {}
 pub type cudnnActivationDescriptor_t = *mut cudnnActivationStruct;
 
 #[derive(Clone, Copy)]
