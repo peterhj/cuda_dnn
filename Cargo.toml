@@ -14,7 +14,9 @@ name = "cuda_dnn"
 path = "src/lib.rs"
 
 [dependencies]
-libc = "^0.2.*"
-float = "^0.1.*"
-#cuda = { path = "../libcuda" }
-cuda = { git = "https://github.com/peterhj/libcuda.git" }
+#libc = "^0.2.*"
+#float = "^0.1.*"
+libc = "*"
+float = "*"
+cuda = { path = "../libcuda" }
+#cuda = { git = "https://github.com/peterhj/libcuda.git" }
