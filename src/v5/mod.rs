@@ -883,6 +883,10 @@ pub struct CudnnPoolingOp {
 
 impl CudnnPoolingOp {
   pub fn create_2d_symmetric(src_desc: CudnnTensorDesc<f32>, src_diff_desc: CudnnTensorDesc<f32>, dst_desc: CudnnTensorDesc<f32>, dst_diff_desc: CudnnTensorDesc<f32>, pool_size: usize, pool_stride: usize, pool_pad: usize, pooling_mode: cudnnPoolingMode_t) -> CudnnResult<CudnnPoolingOp> {
+    Self::create_2d(src_desc, src_diff_desc, dst_desc, dst_diff_desc, pool_size, pool_size, pool_stride, pool_stride, pool_pad, pool_pad, pooling_mode)
+  }
+
+  pub fn create_2d(src_desc: CudnnTensorDesc<f32>, src_diff_desc: CudnnTensorDesc<f32>, dst_desc: CudnnTensorDesc<f32>, dst_diff_desc: CudnnTensorDesc<f32>, pool_width: usize, pool_height: usize, pool_stride_w: usize, pool_stride_h: usize, pool_pad_w: usize, pool_pad_h: usize, pooling_mode: cudnnPoolingMode_t) -> CudnnResult<CudnnPoolingOp> {
     let mut pooling_desc: cudnnPoolingDescriptor_t = null_mut();
     let status = unsafe { cudnnCreatePoolingDescriptor(&mut pooling_desc as *mut _) };
     let result = new_result((), status);
@@ -893,12 +897,12 @@ impl CudnnPoolingOp {
         pooling_desc,
         pooling_mode,
         cudnnNanPropagation_t::NotPropagateNan, // FIXME(20160330): ???
-        pool_size as i32,
-        pool_size as i32,
-        pool_pad as i32,
-        pool_pad as i32,
-        pool_stride as i32,
-        pool_stride as i32,
+        pool_height as i32,
+        pool_width as i32,
+        pool_pad_h as i32,
+        pool_pad_w as i32,
+        pool_stride_h as i32,
+        pool_stride_w as i32,
     ) };
     if result.is_err() {
       return Err(status);
