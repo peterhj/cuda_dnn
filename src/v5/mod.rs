@@ -278,7 +278,7 @@ impl CudnnConvDesc {
             desc.ptr,
             // XXX(20151001): be careful about the argument order.
             pad_h as c_int, pad_w as c_int,
-            stride_w as c_int, stride_h as c_int,
+            stride_h as c_int, stride_w as c_int,
             1, 1,
             // FIXME(20151001): may want to specify this.
             cudnnConvolutionMode_t::CrossCorrelation,
@@ -325,7 +325,7 @@ impl CudnnConvFwdOp {
     let mut workspace_size = inner.memory as usize;
     let batch_size = src_desc.batch_size;
     assert_eq!(batch_size, dst_desc.batch_size);
-    for s in 1 .. batch_size {
+    for s in 1 .. batch_size + 1 {
       src_desc.set_batch_size(s).unwrap();
       dst_desc.set_batch_size(s).unwrap();
       let mut tmp_size = 0;
@@ -457,7 +457,7 @@ impl CudnnConvBwdFilterOp {
     let mut workspace_size = inner.memory as usize;
     let batch_size = src_desc.batch_size;
     assert_eq!(batch_size, diff_desc.batch_size);
-    for s in 1 .. batch_size {
+    for s in 1 .. batch_size + 1 {
       src_desc.set_batch_size(s).unwrap();
       diff_desc.set_batch_size(s).unwrap();
       let mut tmp_size = 0;
@@ -598,7 +598,7 @@ impl CudnnConvBwdDataOp {
 
     let mut workspace_size = inner.memory as usize;
     let batch_size = diff_desc.batch_size;
-    for s in 1 .. batch_size {
+    for s in 1 .. batch_size + 1 {
       diff_desc.set_batch_size(s).unwrap();
       let mut tmp_size = 0;
       let status = unsafe { cudnnGetConvolutionBackwardDataWorkspaceSize(
