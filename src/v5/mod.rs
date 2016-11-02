@@ -66,8 +66,15 @@ impl Drop for CudnnHandle {
   }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum CudnnTensorLayout {
+  NHWC,
+  NCHW,
+}
+
 pub struct CudnnTensorDesc<T> where T: CudnnDataTypeExt {
   pub ptr:          cudnnTensorDescriptor_t,
+  layout:       CudnnTensorLayout,
   width:        usize,
   height:       usize,
   channels:     usize,
@@ -80,7 +87,7 @@ pub struct CudnnTensorDesc<T> where T: CudnnDataTypeExt {
 }
 
 impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
-  pub fn create_4d(width: usize, height: usize, channels: usize, num: usize) -> CudnnResult<CudnnTensorDesc<f32>> {
+  pub fn create_4d(layout: CudnnTensorLayout, width: usize, height: usize, channels: usize, num: usize) -> CudnnResult<CudnnTensorDesc<f32>> {
     let mut inner: cudnnTensorDescriptor_t = null_mut();
     let status = unsafe { cudnnCreateTensorDescriptor(&mut inner as *mut _) };
     if status.is_err() {
@@ -88,9 +95,10 @@ impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
     }
     let status = unsafe { cudnnSetTensor4dDescriptor(
         inner,
-        // FIXME(20151001): may want to specify data layout.
-        //cudnnTensorFormat_t::RowMajorNCHW,
-        cudnnTensorFormat_t::InterleavedNHWC,
+        match layout {
+          CudnnTensorLayout::NCHW =>  cudnnTensorFormat_t::NCHW,
+          CudnnTensorLayout::NHWC =>  cudnnTensorFormat_t::NHWC,
+        },
         T::data_ty(),
         num as c_int,
         channels as c_int,
@@ -130,6 +138,7 @@ impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
     );*/
     Ok(CudnnTensorDesc{
       ptr: inner,
+      layout:   layout,
       width: width,
       height: height,
       channels: channels,
@@ -142,7 +151,7 @@ impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
     })
   }
 
-  pub fn create_4d_strided(
+  /*pub fn create_4d_strided(
       width: usize, height: usize, channels: usize, batch_size: usize,
       s_width: usize, s_height: usize, s_channels: usize, s_batch_size: usize,
   ) -> CudnnResult<CudnnTensorDesc<f32>> {
@@ -178,7 +187,7 @@ impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
       s_batch_size: s_batch_size,
       _marker: PhantomData,
     })
-  }
+  }*/
 
   pub fn set_batch_size(&mut self, new_batch_size: usize) -> CudnnResult<()> {
     if new_batch_size == self.batch_size {
@@ -186,9 +195,10 @@ impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
     } else {
       let status = unsafe { cudnnSetTensor4dDescriptor(
           self.ptr,
-          // FIXME(20151001): may want to specify data layout.
-          //cudnnTensorFormat_t::RowMajorNCHW,
-          cudnnTensorFormat_t::InterleavedNHWC,
+          match self.layout {
+            CudnnTensorLayout::NCHW =>  cudnnTensorFormat_t::NCHW,
+            CudnnTensorLayout::NHWC =>  cudnnTensorFormat_t::NHWC,
+          },
           T::data_ty(),
           new_batch_size as c_int,
           self.channels as c_int,
@@ -235,7 +245,7 @@ impl<T> CudnnFilterDesc<T> where T: CudnnDataTypeExt {
         let status = unsafe { cudnnSetFilter4dDescriptor(
             desc.ptr,
             T::data_ty(),
-            cudnnTensorFormat_t::RowMajorNCHW,
+            cudnnTensorFormat_t::NCHW,
             out_channels as c_int, in_channels as c_int, height as c_int, width as c_int,
         ) };
         new_result(desc, status)

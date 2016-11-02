@@ -70,8 +70,8 @@ pub enum cudnnDataType_t {
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub enum cudnnTensorFormat_t {
-  RowMajorNCHW    = 0,
-  InterleavedNHWC = 1,
+  NCHW  = 0,
+  NHWC  = 1,
 }
 
 #[derive(Clone, Copy)]

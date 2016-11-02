@@ -97,8 +97,8 @@ impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
         inner,
         // FIXME(20151001): may want to specify data layout.
         match layout {
-          CudnnTensorLayout::NCHW =>  cudnnTensorFormat_t::RowMajorNCHW,
-          CudnnTensorLayout::NHWC =>  cudnnTensorFormat_t::InterleavedNHWC,
+          CudnnTensorLayout::NCHW =>  cudnnTensorFormat_t::NCHW,
+          CudnnTensorLayout::NHWC =>  cudnnTensorFormat_t::NHWC,
         },
         T::data_ty(),
         num as c_int,
@@ -196,10 +196,9 @@ impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
     } else {
       let status = unsafe { cudnnSetTensor4dDescriptor(
           self.ptr,
-          // FIXME(20151001): may want to specify data layout.
           match self.layout {
-            CudnnTensorLayout::NCHW =>  cudnnTensorFormat_t::RowMajorNCHW,
-            CudnnTensorLayout::NHWC =>  cudnnTensorFormat_t::InterleavedNHWC,
+            CudnnTensorLayout::NCHW =>  cudnnTensorFormat_t::NCHW,
+            CudnnTensorLayout::NHWC =>  cudnnTensorFormat_t::NHWC,
           },
           T::data_ty(),
           new_batch_size as c_int,
@@ -247,7 +246,7 @@ impl<T> CudnnFilterDesc<T> where T: CudnnDataTypeExt {
         let status = unsafe { cudnnSetFilter4dDescriptor_v4(
             desc.ptr,
             T::data_ty(),
-            cudnnTensorFormat_t::RowMajorNCHW,
+            cudnnTensorFormat_t::NCHW,
             out_channels as c_int, in_channels as c_int, height as c_int, width as c_int,
         ) };
         new_result(desc, status)
