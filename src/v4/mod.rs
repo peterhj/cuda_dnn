@@ -95,7 +95,6 @@ impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
     }
     let status = unsafe { cudnnSetTensor4dDescriptor(
         inner,
-        // FIXME(20151001): may want to specify data layout.
         match layout {
           CudnnTensorLayout::NCHW =>  cudnnTensorFormat_t::NCHW,
           CudnnTensorLayout::NHWC =>  cudnnTensorFormat_t::NHWC,
@@ -291,7 +290,7 @@ impl CudnnConvDesc {
             desc.ptr,
             // XXX(20151001): be careful about the argument order.
             pad_h as c_int, pad_w as c_int,
-            stride_w as c_int, stride_h as c_int,
+            stride_h as c_int, stride_w as c_int,
             1, 1,
             // FIXME(20151001): may want to specify this.
             cudnnConvolutionMode_t::CrossCorrelation,

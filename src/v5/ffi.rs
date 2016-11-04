@@ -289,6 +289,14 @@ extern "C" {
   ) -> cudnnStatus_t;
   pub fn cudnnCreateFilterDescriptor(filter_desc: *mut cudnnFilterDescriptor_t) -> cudnnStatus_t;
   pub fn cudnnDestroyFilterDescriptor(filter_desc: cudnnFilterDescriptor_t) -> cudnnStatus_t;
+  pub fn cudnnSetFilter4dDescriptor_v3(
+      filter_desc: cudnnFilterDescriptor_t,
+      data_ty: cudnnDataType_t,
+      k: c_int,
+      c: c_int,
+      h: c_int,
+      w: c_int,
+  ) -> cudnnStatus_t;
   pub fn cudnnSetFilter4dDescriptor(
       filter_desc: cudnnFilterDescriptor_t,
       data_ty: cudnnDataType_t,
