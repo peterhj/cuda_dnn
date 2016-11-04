@@ -28,6 +28,10 @@ impl Default for cudnnStatus_t {
 }
 
 impl cudnnStatus_t {
+  pub fn is_ok(&self) -> bool {
+    !self.is_err()
+  }
+
   pub fn is_err(&self) -> bool {
     if let cudnnStatus_t::Success = *self {
       false
@@ -66,8 +70,8 @@ pub enum cudnnDataType_t {
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub enum cudnnTensorFormat_t {
-  RowMajorNCHW    = 0,
-  InterleavedNHWC = 1,
+  NCHW  = 0,
+  NHWC  = 1,
 }
 
 #[derive(Clone, Copy)]
@@ -106,6 +110,7 @@ pub enum cudnnConvolutionFwdAlgo_t {
   Fft                 = 4,
   FftTiling           = 5,
   Winograd            = 6,
+  WinogradNonfused    = 7,
 }
 
 impl Default for cudnnConvolutionFwdAlgo_t {
@@ -138,6 +143,7 @@ pub enum cudnnConvolutionBwdFilterAlgo_t {
   Deterministic             = 1,
   Fft                       = 2,
   NonDeterministicWorkspace = 3,
+  WinogradNonfused          = 4,
 }
 
 impl Default for cudnnConvolutionBwdFilterAlgo_t {
@@ -171,6 +177,7 @@ pub enum cudnnConvolutionBwdDataAlgo_t {
   Fft               = 2,
   FftTiling         = 3,
   Winograd          = 4,
+  WinogradNonfused  = 5,
 }
 
 impl Default for cudnnConvolutionBwdDataAlgo_t {
@@ -282,6 +289,14 @@ extern "C" {
   ) -> cudnnStatus_t;
   pub fn cudnnCreateFilterDescriptor(filter_desc: *mut cudnnFilterDescriptor_t) -> cudnnStatus_t;
   pub fn cudnnDestroyFilterDescriptor(filter_desc: cudnnFilterDescriptor_t) -> cudnnStatus_t;
+  pub fn cudnnSetFilter4dDescriptor_v3(
+      filter_desc: cudnnFilterDescriptor_t,
+      data_ty: cudnnDataType_t,
+      k: c_int,
+      c: c_int,
+      h: c_int,
+      w: c_int,
+  ) -> cudnnStatus_t;
   pub fn cudnnSetFilter4dDescriptor(
       filter_desc: cudnnFilterDescriptor_t,
       data_ty: cudnnDataType_t,
@@ -327,6 +342,15 @@ extern "C" {
 
   // TODO
 
+  pub fn cudnnGetConvolution2dForwardOutputDim(
+      conv_desc: cudnnConvolutionDescriptor_t,
+      input_desc: cudnnTensorDescriptor_t,
+      filter_desc: cudnnFilterDescriptor_t,
+      n: *mut c_int,
+      c: *mut c_int,
+      h: *mut c_int,
+      w: *mut c_int,
+  ) -> cudnnStatus_t;
   pub fn cudnnFindConvolutionForwardAlgorithm(
       handle: cudnnHandle_t,
       src_desc: cudnnTensorDescriptor_t,

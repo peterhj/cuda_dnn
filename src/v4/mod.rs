@@ -66,8 +66,15 @@ impl Drop for CudnnHandle {
   }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum CudnnTensorLayout {
+  NHWC,
+  NCHW,
+}
+
 pub struct CudnnTensorDesc<T> where T: CudnnDataTypeExt {
   ptr:          cudnnTensorDescriptor_t,
+  layout:       CudnnTensorLayout,
   width:        usize,
   height:       usize,
   channels:     usize,
@@ -80,7 +87,7 @@ pub struct CudnnTensorDesc<T> where T: CudnnDataTypeExt {
 }
 
 impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
-  pub fn create_4d(width: usize, height: usize, channels: usize, num: usize) -> CudnnResult<CudnnTensorDesc<f32>> {
+  pub fn create_4d(layout: CudnnTensorLayout, width: usize, height: usize, channels: usize, num: usize) -> CudnnResult<CudnnTensorDesc<f32>> {
     let mut inner: cudnnTensorDescriptor_t = null_mut();
     let status = unsafe { cudnnCreateTensorDescriptor(&mut inner as *mut _) };
     if status.is_err() {
@@ -88,8 +95,10 @@ impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
     }
     let status = unsafe { cudnnSetTensor4dDescriptor(
         inner,
-        // FIXME(20151001): may want to specify data layout.
-        cudnnTensorFormat_t::RowMajorNCHW,
+        match layout {
+          CudnnTensorLayout::NCHW =>  cudnnTensorFormat_t::NCHW,
+          CudnnTensorLayout::NHWC =>  cudnnTensorFormat_t::NHWC,
+        },
         T::data_ty(),
         num as c_int,
         channels as c_int,
@@ -129,6 +138,7 @@ impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
     );*/
     Ok(CudnnTensorDesc{
       ptr: inner,
+      layout:   layout,
       width: width,
       height: height,
       channels: channels,
@@ -141,7 +151,7 @@ impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
     })
   }
 
-  pub fn create_4d_strided(
+  /*pub fn create_4d_strided(
       width: usize, height: usize, channels: usize, batch_size: usize,
       s_width: usize, s_height: usize, s_channels: usize, s_batch_size: usize,
   ) -> CudnnResult<CudnnTensorDesc<f32>> {
@@ -177,7 +187,7 @@ impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
       s_batch_size: s_batch_size,
       _marker: PhantomData,
     })
-  }
+  }*/
 
   pub fn set_batch_size(&mut self, new_batch_size: usize) -> CudnnResult<()> {
     if new_batch_size == self.batch_size {
@@ -185,8 +195,10 @@ impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
     } else {
       let status = unsafe { cudnnSetTensor4dDescriptor(
           self.ptr,
-          // FIXME(20151001): may want to specify data layout.
-          cudnnTensorFormat_t::RowMajorNCHW,
+          match self.layout {
+            CudnnTensorLayout::NCHW =>  cudnnTensorFormat_t::NCHW,
+            CudnnTensorLayout::NHWC =>  cudnnTensorFormat_t::NHWC,
+          },
           T::data_ty(),
           new_batch_size as c_int,
           self.channels as c_int,
@@ -230,9 +242,10 @@ impl<T> CudnnFilterDesc<T> where T: CudnnDataTypeExt {
       _marker: PhantomData,
     }, status)
       .and_then(|desc| {
-        let status = unsafe { cudnnSetFilter4dDescriptor(
+        let status = unsafe { cudnnSetFilter4dDescriptor_v4(
             desc.ptr,
             T::data_ty(),
+            cudnnTensorFormat_t::NCHW,
             out_channels as c_int, in_channels as c_int, height as c_int, width as c_int,
         ) };
         new_result(desc, status)
@@ -277,7 +290,7 @@ impl CudnnConvDesc {
             desc.ptr,
             // XXX(20151001): be careful about the argument order.
             pad_h as c_int, pad_w as c_int,
-            stride_w as c_int, stride_h as c_int,
+            stride_h as c_int, stride_w as c_int,
             1, 1,
             // FIXME(20151001): may want to specify this.
             cudnnConvolutionMode_t::CrossCorrelation,
@@ -324,7 +337,7 @@ impl CudnnConvFwdOp {
     let mut workspace_size = inner.memory as usize;
     let batch_size = src_desc.batch_size;
     assert_eq!(batch_size, dst_desc.batch_size);
-    for s in 1 .. batch_size {
+    for s in 1 .. batch_size + 1 {
       src_desc.set_batch_size(s).unwrap();
       dst_desc.set_batch_size(s).unwrap();
       let mut tmp_size = 0;
@@ -363,7 +376,7 @@ impl CudnnConvFwdOp {
     let mut workspace_size: usize = 0;
     let batch_size = src_desc.batch_size;
     assert_eq!(batch_size, dst_desc.batch_size);
-    for s in 1 .. batch_size + 1 {
+    for s in (1 .. batch_size + 1).rev() {
       src_desc.set_batch_size(s).unwrap();
       dst_desc.set_batch_size(s).unwrap();
       let mut tmp_size = 0;
@@ -456,7 +469,7 @@ impl CudnnConvBwdFilterOp {
     let mut workspace_size = inner.memory as usize;
     let batch_size = src_desc.batch_size;
     assert_eq!(batch_size, diff_desc.batch_size);
-    for s in 1 .. batch_size {
+    for s in 1 .. batch_size + 1 {
       src_desc.set_batch_size(s).unwrap();
       diff_desc.set_batch_size(s).unwrap();
       let mut tmp_size = 0;
@@ -597,7 +610,7 @@ impl CudnnConvBwdDataOp {
 
     let mut workspace_size = inner.memory as usize;
     let batch_size = diff_desc.batch_size;
-    for s in 1 .. batch_size {
+    for s in 1 .. batch_size + 1 {
       diff_desc.set_batch_size(s).unwrap();
       let mut tmp_size = 0;
       let status = unsafe { cudnnGetConvolutionBackwardDataWorkspaceSize(
@@ -882,6 +895,10 @@ pub struct CudnnPoolingOp {
 
 impl CudnnPoolingOp {
   pub fn create_2d_symmetric(src_desc: CudnnTensorDesc<f32>, src_diff_desc: CudnnTensorDesc<f32>, dst_desc: CudnnTensorDesc<f32>, dst_diff_desc: CudnnTensorDesc<f32>, pool_size: usize, pool_stride: usize, pool_pad: usize, pooling_mode: cudnnPoolingMode_t) -> CudnnResult<CudnnPoolingOp> {
+    Self::create_2d(src_desc, src_diff_desc, dst_desc, dst_diff_desc, pool_size, pool_size, pool_stride, pool_stride, pool_pad, pool_pad, pooling_mode)
+  }
+
+  pub fn create_2d(src_desc: CudnnTensorDesc<f32>, src_diff_desc: CudnnTensorDesc<f32>, dst_desc: CudnnTensorDesc<f32>, dst_diff_desc: CudnnTensorDesc<f32>, pool_width: usize, pool_height: usize, pool_stride_w: usize, pool_stride_h: usize, pool_pad_w: usize, pool_pad_h: usize, pooling_mode: cudnnPoolingMode_t) -> CudnnResult<CudnnPoolingOp> {
     let mut pooling_desc: cudnnPoolingDescriptor_t = null_mut();
     let status = unsafe { cudnnCreatePoolingDescriptor(&mut pooling_desc as *mut _) };
     let result = new_result((), status);
@@ -892,12 +909,12 @@ impl CudnnPoolingOp {
         pooling_desc,
         pooling_mode,
         cudnnNanPropagation_t::NotPropagateNan, // FIXME(20160330): ???
-        pool_size as i32,
-        pool_size as i32,
-        pool_pad as i32,
-        pool_pad as i32,
-        pool_stride as i32,
-        pool_stride as i32,
+        pool_height as i32,
+        pool_width as i32,
+        pool_pad_h as i32,
+        pool_pad_w as i32,
+        pool_stride_h as i32,
+        pool_stride_w as i32,
     ) };
     if result.is_err() {
       return Err(status);

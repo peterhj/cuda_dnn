@@ -167,7 +167,7 @@ impl CudnnConvDesc {
             desc.ptr,
             // XXX(20151001): be careful about the argument order.
             pad_h as c_int, pad_w as c_int,
-            stride_w as c_int, stride_h as c_int,
+            stride_h as c_int, stride_w as c_int,
             1, 1,
             // FIXME(20151001): may want to specify this.
             cudnnConvolutionMode_t::CrossCorrelation,
@@ -430,6 +430,10 @@ impl CudnnConvBwdDataOp {
 
   pub fn set_batch_size(&mut self, new_batch_size: usize) -> CudnnResult<()> {
     let res = self.diff_desc.set_batch_size(new_batch_size);
+    if res.is_err() {
+      return res;
+    }
+    let res = self.grad_desc.set_batch_size(new_batch_size);
     res
   }
 }

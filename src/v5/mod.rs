@@ -66,8 +66,15 @@ impl Drop for CudnnHandle {
   }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum CudnnTensorLayout {
+  NHWC,
+  NCHW,
+}
+
 pub struct CudnnTensorDesc<T> where T: CudnnDataTypeExt {
-  ptr:          cudnnTensorDescriptor_t,
+  pub ptr:          cudnnTensorDescriptor_t,
+  layout:       CudnnTensorLayout,
   width:        usize,
   height:       usize,
   channels:     usize,
@@ -80,7 +87,7 @@ pub struct CudnnTensorDesc<T> where T: CudnnDataTypeExt {
 }
 
 impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
-  pub fn create_4d(width: usize, height: usize, channels: usize, num: usize) -> CudnnResult<CudnnTensorDesc<f32>> {
+  pub fn create_4d(layout: CudnnTensorLayout, width: usize, height: usize, channels: usize, num: usize) -> CudnnResult<CudnnTensorDesc<f32>> {
     let mut inner: cudnnTensorDescriptor_t = null_mut();
     let status = unsafe { cudnnCreateTensorDescriptor(&mut inner as *mut _) };
     if status.is_err() {
@@ -88,8 +95,10 @@ impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
     }
     let status = unsafe { cudnnSetTensor4dDescriptor(
         inner,
-        // FIXME(20151001): may want to specify data layout.
-        cudnnTensorFormat_t::RowMajorNCHW,
+        match layout {
+          CudnnTensorLayout::NCHW =>  cudnnTensorFormat_t::NCHW,
+          CudnnTensorLayout::NHWC =>  cudnnTensorFormat_t::NHWC,
+        },
         T::data_ty(),
         num as c_int,
         channels as c_int,
@@ -129,6 +138,7 @@ impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
     );*/
     Ok(CudnnTensorDesc{
       ptr: inner,
+      layout:   layout,
       width: width,
       height: height,
       channels: channels,
@@ -141,7 +151,7 @@ impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
     })
   }
 
-  pub fn create_4d_strided(
+  /*pub fn create_4d_strided(
       width: usize, height: usize, channels: usize, batch_size: usize,
       s_width: usize, s_height: usize, s_channels: usize, s_batch_size: usize,
   ) -> CudnnResult<CudnnTensorDesc<f32>> {
@@ -177,7 +187,7 @@ impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
       s_batch_size: s_batch_size,
       _marker: PhantomData,
     })
-  }
+  }*/
 
   pub fn set_batch_size(&mut self, new_batch_size: usize) -> CudnnResult<()> {
     if new_batch_size == self.batch_size {
@@ -185,8 +195,10 @@ impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
     } else {
       let status = unsafe { cudnnSetTensor4dDescriptor(
           self.ptr,
-          // FIXME(20151001): may want to specify data layout.
-          cudnnTensorFormat_t::RowMajorNCHW,
+          match self.layout {
+            CudnnTensorLayout::NCHW =>  cudnnTensorFormat_t::NCHW,
+            CudnnTensorLayout::NHWC =>  cudnnTensorFormat_t::NHWC,
+          },
           T::data_ty(),
           new_batch_size as c_int,
           self.channels as c_int,
@@ -209,7 +221,7 @@ impl<T> Drop for CudnnTensorDesc<T> where T: CudnnDataTypeExt {
 }
 
 pub struct CudnnFilterDesc<T> where T: CudnnDataTypeExt {
-  ptr:          cudnnFilterDescriptor_t,
+  pub ptr:          cudnnFilterDescriptor_t,
   width:        usize,
   height:       usize,
   in_channels:  usize,
@@ -233,7 +245,7 @@ impl<T> CudnnFilterDesc<T> where T: CudnnDataTypeExt {
         let status = unsafe { cudnnSetFilter4dDescriptor(
             desc.ptr,
             T::data_ty(),
-            cudnnTensorFormat_t::RowMajorNCHW,
+            cudnnTensorFormat_t::NCHW,
             out_channels as c_int, in_channels as c_int, height as c_int, width as c_int,
         ) };
         new_result(desc, status)
@@ -251,7 +263,7 @@ impl<T> Drop for CudnnFilterDesc<T> where T: CudnnDataTypeExt {
 }
 
 pub struct CudnnConvDesc {
-  ptr: cudnnConvolutionDescriptor_t,
+  pub ptr: cudnnConvolutionDescriptor_t,
   stride_w: usize,
   stride_h: usize,
   pad_w:    usize,
@@ -322,7 +334,9 @@ impl CudnnConvFwdOp {
     ) };
     //println!("DEBUG: perf: {:?}", inner);
 
-    let mut workspace_size = inner.memory as usize;
+    Self::create_algo(inner.algo, src_desc, filter_desc, conv_desc, dst_desc, handle)
+
+    /*let mut workspace_size = inner.memory as usize;
     let batch_size = src_desc.batch_size;
     assert_eq!(batch_size, dst_desc.batch_size);
     for s in 1 .. batch_size + 1 {
@@ -340,7 +354,7 @@ impl CudnnConvFwdOp {
           inner.algo,
           &mut tmp_size as *mut _,
       ) };
-      //assert!(status.is_ok());
+      assert!(status.is_ok());
       workspace_size = max(workspace_size, tmp_size);
     }
     src_desc.set_batch_size(batch_size).unwrap();
@@ -355,7 +369,7 @@ impl CudnnConvFwdOp {
       filter_desc: filter_desc,
       conv_desc: conv_desc,
       dst_desc: dst_desc,
-    }, status)
+    }, status)*/
   }
 
   pub fn create_algo(algo: cudnnConvolutionFwdAlgo_t, mut src_desc: CudnnTensorDesc<f32>, filter_desc: CudnnFilterDesc<f32>, conv_desc: CudnnConvDesc, mut dst_desc: CudnnTensorDesc<f32>, handle: &CudnnHandle) -> CudnnResult<CudnnConvFwdOp> {
@@ -364,7 +378,7 @@ impl CudnnConvFwdOp {
     let mut workspace_size: usize = 0;
     let batch_size = src_desc.batch_size;
     assert_eq!(batch_size, dst_desc.batch_size);
-    for s in 1 .. batch_size + 1 {
+    for s in (1 .. batch_size + 1).rev() {
       src_desc.set_batch_size(s).unwrap();
       dst_desc.set_batch_size(s).unwrap();
       let mut tmp_size = 0;
@@ -379,7 +393,7 @@ impl CudnnConvFwdOp {
           algo,
           &mut tmp_size as *mut _,
       ) };
-      //assert!(status.is_ok());
+      assert!(status.is_ok());
       workspace_size = max(workspace_size, tmp_size);
     }
     src_desc.set_batch_size(batch_size).unwrap();
@@ -454,7 +468,9 @@ impl CudnnConvBwdFilterOp {
     ) };
     //println!("DEBUG: perf: {:?}", inner);
 
-    let mut workspace_size = inner.memory as usize;
+    Self::create_algo(inner.algo, src_desc, diff_desc, conv_desc, grad_filter_desc, grad_bias_desc, handle)
+
+    /*let mut workspace_size = inner.memory as usize;
     let batch_size = src_desc.batch_size;
     assert_eq!(batch_size, diff_desc.batch_size);
     for s in 1 .. batch_size + 1 {
@@ -470,7 +486,7 @@ impl CudnnConvBwdFilterOp {
           inner.algo,
           &mut tmp_size as *mut _,
       ) };
-      //assert!(status.is_ok());
+      assert!(status.is_ok());
       workspace_size = max(workspace_size, tmp_size);
     }
     src_desc.set_batch_size(batch_size).unwrap();
@@ -486,7 +502,7 @@ impl CudnnConvBwdFilterOp {
       conv_desc: conv_desc,
       grad_filter_desc: grad_filter_desc,
       grad_bias_desc: grad_bias_desc,
-    }, status)
+    }, status)*/
   }
 
   pub fn create_algo(algo: cudnnConvolutionBwdFilterAlgo_t, mut src_desc: CudnnTensorDesc<f32>, mut diff_desc: CudnnTensorDesc<f32>, conv_desc: CudnnConvDesc, grad_filter_desc: CudnnFilterDesc<f32>, grad_bias_desc: CudnnTensorDesc<f32>, handle: &CudnnHandle) -> CudnnResult<CudnnConvBwdFilterOp> {
@@ -507,7 +523,7 @@ impl CudnnConvBwdFilterOp {
           algo,
           &mut tmp_size as *mut _,
       ) };
-      //assert!(status.is_ok());
+      assert!(status.is_ok());
       workspace_size = max(workspace_size, tmp_size);
     }
     src_desc.set_batch_size(batch_size).unwrap();
@@ -582,7 +598,7 @@ pub struct CudnnConvBwdDataOp {
 }
 
 impl CudnnConvBwdDataOp {
-  pub fn create_fastest(filter_desc: CudnnFilterDesc<f32>, mut diff_desc: CudnnTensorDesc<f32>, conv_desc: CudnnConvDesc, grad_desc: CudnnTensorDesc<f32>, handle: &CudnnHandle) -> CudnnResult<CudnnConvBwdDataOp> {
+  pub fn create_fastest(filter_desc: CudnnFilterDesc<f32>, mut diff_desc: CudnnTensorDesc<f32>, conv_desc: CudnnConvDesc, mut grad_desc: CudnnTensorDesc<f32>, handle: &CudnnHandle) -> CudnnResult<CudnnConvBwdDataOp> {
     let mut count: c_int = 0;
     let mut inner: cudnnConvolutionBwdDataAlgoPerf_t = Default::default();
     let status = unsafe { cudnnFindConvolutionBackwardDataAlgorithm(
@@ -596,10 +612,14 @@ impl CudnnConvBwdDataOp {
     ) };
     //println!("DEBUG: perf: {:?}", inner);
 
-    let mut workspace_size = inner.memory as usize;
+    Self::create_algo(inner.algo, filter_desc, diff_desc, conv_desc, grad_desc, handle)
+
+    /*let mut workspace_size = inner.memory as usize;
     let batch_size = diff_desc.batch_size;
+    assert_eq!(batch_size, grad_desc.batch_size);
     for s in 1 .. batch_size + 1 {
       diff_desc.set_batch_size(s).unwrap();
+      grad_desc.set_batch_size(s).unwrap();
       let mut tmp_size = 0;
       let status = unsafe { cudnnGetConvolutionBackwardDataWorkspaceSize(
           handle.ptr,
@@ -610,10 +630,11 @@ impl CudnnConvBwdDataOp {
           inner.algo,
           &mut tmp_size as *mut _,
       ) };
-      //assert!(status.is_ok());
+      assert!(status.is_ok());
       workspace_size = max(workspace_size, tmp_size);
     }
     diff_desc.set_batch_size(batch_size).unwrap();
+    grad_desc.set_batch_size(batch_size).unwrap();
 
     new_result(CudnnConvBwdDataOp{
       algo: inner.algo,
@@ -624,15 +645,17 @@ impl CudnnConvBwdDataOp {
       diff_desc: diff_desc,
       conv_desc: conv_desc,
       grad_desc: grad_desc,
-    }, status)
+    }, status)*/
   }
 
-  pub fn create_algo(algo: cudnnConvolutionBwdDataAlgo_t, filter_desc: CudnnFilterDesc<f32>, mut diff_desc: CudnnTensorDesc<f32>, conv_desc: CudnnConvDesc, grad_desc: CudnnTensorDesc<f32>, handle: &CudnnHandle) -> CudnnResult<CudnnConvBwdDataOp> {
+  pub fn create_algo(algo: cudnnConvolutionBwdDataAlgo_t, filter_desc: CudnnFilterDesc<f32>, mut diff_desc: CudnnTensorDesc<f32>, conv_desc: CudnnConvDesc, mut grad_desc: CudnnTensorDesc<f32>, handle: &CudnnHandle) -> CudnnResult<CudnnConvBwdDataOp> {
     let mut status = cudnnStatus_t::Success;
     let mut workspace_size = 0;
     let batch_size = diff_desc.batch_size;
+    assert_eq!(batch_size, grad_desc.batch_size);
     for s in 1 .. batch_size + 1 {
       diff_desc.set_batch_size(s).unwrap();
+      grad_desc.set_batch_size(s).unwrap();
       let mut tmp_size = 0;
       let status = unsafe { cudnnGetConvolutionBackwardDataWorkspaceSize(
           handle.ptr,
@@ -643,10 +666,11 @@ impl CudnnConvBwdDataOp {
           algo,
           &mut tmp_size as *mut _,
       ) };
-      //assert!(status.is_ok());
+      assert!(status.is_ok());
       workspace_size = max(workspace_size, tmp_size);
     }
     diff_desc.set_batch_size(batch_size).unwrap();
+    grad_desc.set_batch_size(batch_size).unwrap();
 
     new_result(CudnnConvBwdDataOp{
       algo: algo,
@@ -682,6 +706,10 @@ impl CudnnConvBwdDataOp {
 
   pub fn set_batch_size(&mut self, new_batch_size: usize) -> CudnnResult<()> {
     let res = self.diff_desc.set_batch_size(new_batch_size);
+    if res.is_err() {
+      return res;
+    }
+    let res = self.grad_desc.set_batch_size(new_batch_size);
     res
   }
 }
