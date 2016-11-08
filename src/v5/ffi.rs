@@ -1,3 +1,5 @@
+#![allow(non_camel_case_types)]
+
 use cuda::ffi::runtime::{cudaStream_t};
 
 use libc::{c_void, c_char, c_int, c_float, size_t};
