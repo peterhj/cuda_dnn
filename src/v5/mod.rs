@@ -83,11 +83,11 @@ pub struct CudnnTensorDesc<T> where T: CudnnDataTypeExt {
   s_height:     usize,
   s_channels:   usize,
   s_batch_size: usize,
-  _marker:      PhantomData<T>,
+  _marker:      PhantomData<fn (T)>,
 }
 
 impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
-  pub fn create_4d(layout: CudnnTensorLayout, width: usize, height: usize, channels: usize, num: usize) -> CudnnResult<CudnnTensorDesc<f32>> {
+  pub fn create_4d(layout: CudnnTensorLayout, width: usize, height: usize, channels: usize, num: usize) -> CudnnResult<CudnnTensorDesc<T>> {
     let mut inner: cudnnTensorDescriptor_t = null_mut();
     let status = unsafe { cudnnCreateTensorDescriptor(&mut inner as *mut _) };
     if status.is_err() {
@@ -154,7 +154,7 @@ impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
   /*pub fn create_4d_strided(
       width: usize, height: usize, channels: usize, batch_size: usize,
       s_width: usize, s_height: usize, s_channels: usize, s_batch_size: usize,
-  ) -> CudnnResult<CudnnTensorDesc<f32>> {
+  ) -> CudnnResult<CudnnTensorDesc<T>> {
     let mut inner: cudnnTensorDescriptor_t = null_mut();
     let status = unsafe { cudnnCreateTensorDescriptor(&mut inner as *mut _) };
     if status.is_err() {
@@ -226,11 +226,11 @@ pub struct CudnnFilterDesc<T> where T: CudnnDataTypeExt {
   height:       usize,
   in_channels:  usize,
   out_channels: usize,
-  _marker:      PhantomData<T>,
+  _marker:      PhantomData<fn (T)>,
 }
 
 impl<T> CudnnFilterDesc<T> where T: CudnnDataTypeExt {
-  pub fn create_4d(width: usize, height: usize, in_channels: usize, out_channels: usize) -> CudnnResult<CudnnFilterDesc<f32>> {
+  pub fn create_4d(width: usize, height: usize, in_channels: usize, out_channels: usize) -> CudnnResult<CudnnFilterDesc<T>> {
     let mut inner: cudnnFilterDescriptor_t = null_mut();
     let status = unsafe { cudnnCreateFilterDescriptor(&mut inner as *mut _) };
     new_result(CudnnFilterDesc{
