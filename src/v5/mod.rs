@@ -454,6 +454,10 @@ pub struct CudnnConvBwdFilterOp {
 }
 
 impl CudnnConvBwdFilterOp {
+  pub fn create_deterministic(mut src_desc: CudnnTensorDesc<f32>, mut diff_desc: CudnnTensorDesc<f32>, conv_desc: CudnnConvDesc, grad_filter_desc: CudnnFilterDesc<f32>, grad_bias_desc: CudnnTensorDesc<f32>, handle: &CudnnHandle) -> CudnnResult<CudnnConvBwdFilterOp> {
+    Self::create_algo(cudnnConvolutionBwdFilterAlgo_t::Deterministic, src_desc, diff_desc, conv_desc, grad_filter_desc, grad_bias_desc, handle)
+  }
+
   pub fn create_fastest(mut src_desc: CudnnTensorDesc<f32>, mut diff_desc: CudnnTensorDesc<f32>, conv_desc: CudnnConvDesc, grad_filter_desc: CudnnFilterDesc<f32>, grad_bias_desc: CudnnTensorDesc<f32>, handle: &CudnnHandle) -> CudnnResult<CudnnConvBwdFilterOp> {
     let mut count: c_int = 0;
     let mut inner: cudnnConvolutionBwdFilterAlgoPerf_t = Default::default();
@@ -587,6 +591,40 @@ impl CudnnConvBwdFilterOp {
   }
 }
 
+pub struct CudnnConvBwdBiasOp {
+  pub diff_desc:        CudnnTensorDesc<f32>,
+  pub grad_bias_desc:   CudnnTensorDesc<f32>,
+}
+
+impl CudnnConvBwdBiasOp {
+  pub fn create(mut src_desc: CudnnTensorDesc<f32>, mut diff_desc: CudnnTensorDesc<f32>, grad_bias_desc: CudnnTensorDesc<f32>, handle: &CudnnHandle) -> CudnnResult<CudnnConvBwdBiasOp> {
+    Ok(CudnnConvBwdBiasOp{
+      diff_desc: diff_desc,
+      grad_bias_desc: grad_bias_desc,
+    })
+  }
+
+  pub unsafe fn backward_bias(&self, scale: f32, out_delta: *const f32, prev_scale: f32, grad_bias_accum: *mut f32, handle: &CudnnHandle) -> CudnnResult<()> {
+    let alpha: f32 = scale;
+    let beta: f32 = prev_scale;
+    let status = unsafe { cudnnConvolutionBackwardBias(
+        handle.ptr,
+        &alpha as *const f32 as *const c_void,
+        self.diff_desc.ptr,
+        out_delta as *const c_void,
+        &beta as *const f32 as *const c_void,
+        self.grad_bias_desc.ptr,
+        grad_bias_accum as *mut c_void,
+    ) };
+    new_result((), status)
+  }
+
+  pub fn set_batch_size(&mut self, new_batch_size: usize) -> CudnnResult<()> {
+    let res = self.diff_desc.set_batch_size(new_batch_size);
+    res
+  }
+}
+
 pub struct CudnnConvBwdDataOp {
   pub algo:         cudnnConvolutionBwdDataAlgo_t,
   pub work_size:    usize,
@@ -598,6 +636,10 @@ pub struct CudnnConvBwdDataOp {
 }
 
 impl CudnnConvBwdDataOp {
+  pub fn create_deterministic(filter_desc: CudnnFilterDesc<f32>, mut diff_desc: CudnnTensorDesc<f32>, conv_desc: CudnnConvDesc, mut grad_desc: CudnnTensorDesc<f32>, handle: &CudnnHandle) -> CudnnResult<CudnnConvBwdDataOp> {
+    Self::create_algo(cudnnConvolutionBwdDataAlgo_t::Deterministic, filter_desc, diff_desc, conv_desc, grad_desc, handle)
+  }
+
   pub fn create_fastest(filter_desc: CudnnFilterDesc<f32>, mut diff_desc: CudnnTensorDesc<f32>, conv_desc: CudnnConvDesc, mut grad_desc: CudnnTensorDesc<f32>, handle: &CudnnHandle) -> CudnnResult<CudnnConvBwdDataOp> {
     let mut count: c_int = 0;
     let mut inner: cudnnConvolutionBwdDataAlgoPerf_t = Default::default();
