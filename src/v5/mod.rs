@@ -1,7 +1,7 @@
 use v5::ffi::*;
 
 use cuda::runtime::{CudaStream};
-use float::stub::{f16_stub};
+//use float::stub::{f16_stub};
 
 use libc::{c_void, c_int, size_t};
 use std::cmp::{max};
@@ -14,11 +14,11 @@ pub trait CudnnDataTypeExt {
   fn data_ty() -> cudnnDataType_t;
 }
 
-impl CudnnDataTypeExt for f16_stub {
+/*impl CudnnDataTypeExt for f16_stub {
   fn data_ty() -> cudnnDataType_t {
     cudnnDataType_t::Half
   }
-}
+}*/
 
 impl CudnnDataTypeExt for f32 {
   fn data_ty() -> cudnnDataType_t {
