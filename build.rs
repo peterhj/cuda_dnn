@@ -13,11 +13,14 @@ fn main() {
     Ok(path) => PathBuf::from(path),
     Err(_) => cuda_dir.clone(),
   };
+
+  println!("cargo:rustc-link-lib=cudnn");
+
   let cudnn_bindings = bindgen::Builder::default()
     .clang_arg(format!("-I{}", cudnn_dir.join("include").as_os_str().to_str().unwrap()))
     .clang_arg(format!("-I{}", cuda_dir.join("include").as_os_str().to_str().unwrap()))
     .header("wrap.h")
-    .link("cudnn")
+    //.link("cudnn")
     .whitelist_recursively(false)
     .whitelist_var("CUDNN_MAJOR")
     .whitelist_var("CUDNN_MINOR")
