@@ -1,11 +1,13 @@
 #![allow(non_upper_case_globals)]
 
 extern crate cuda;
+extern crate float;
 
 use ffi::*;
 
 use cuda::ffi::runtime::{cudaStream_t};
 use cuda::runtime::*;
+use float::stub::*;
 
 use std::marker::{PhantomData};
 use std::mem::{uninitialized};
@@ -14,6 +16,7 @@ use std::ptr::{null_mut};
 
 pub mod ffi;
 
+#[derive(Clone, Copy, Debug)]
 pub struct CudnnError(pub cudnnStatus_t);
 
 pub type CudnnResult<T> = Result<T, CudnnError>;
@@ -22,11 +25,11 @@ pub trait CudnnDataTypeExt: Copy {
   fn raw_data_ty() -> cudnnDataType_t;
 }
 
-/*impl CudnnDataTypeExt for f16_stub {
+impl CudnnDataTypeExt for f16_stub {
   fn raw_data_ty() -> cudnnDataType_t {
     cudnnDataType_t_CUDNN_DATA_HALF
   }
-}*/
+}
 
 impl CudnnDataTypeExt for f32 {
   fn raw_data_ty() -> cudnnDataType_t {
@@ -142,15 +145,61 @@ impl<T> CudnnFilterDesc<T> where T: CudnnDataTypeExt {
   }
 }
 
+pub struct CudnnConvDesc {
+  ptr:  cudnnConvolutionDescriptor_t,
+}
+
+impl CudnnConvDesc {
+  pub fn create() -> CudnnResult<CudnnConvDesc> {
+    let mut ptr = null_mut();
+    let status = unsafe { cudnnCreateConvolutionDescriptor(&mut ptr as *mut _) };
+    match status {
+      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(CudnnConvDesc{ptr: ptr}),
+      e => Err(CudnnError(e)),
+    }
+  }
+
+  pub unsafe fn as_mut_ptr(&self) -> cudnnConvolutionDescriptor_t {
+    self.ptr
+  }
+
+  pub fn set_2d(&self, pad_h: i32, pad_w: i32, stride_h: i32, stride_w: i32, dilation_h: i32, dilation_w: i32, mode: cudnnConvolutionMode_t, ty: cudnnDataType_t) -> CudnnResult<()> {
+    let status = unsafe { cudnnSetConvolution2dDescriptor(
+        self.ptr,
+        pad_h, pad_w,
+        stride_h, stride_w,
+        dilation_h, dilation_w,
+        mode,
+        ty,
+    ) };
+    match status {
+      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
+      e => Err(CudnnError(e)),
+    }
+  }
+
+  pub fn set_group_count(&self, group_count: i32) -> CudnnResult<()> {
+    let status = unsafe { cudnnSetConvolutionGroupCount(self.ptr, group_count) };
+    match status {
+      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
+      e => Err(CudnnError(e)),
+    }
+  }
+
+  pub fn set_math_type(&self, math_type: cudnnMathType_t) -> CudnnResult<()> {
+    let status = unsafe { cudnnSetConvolutionMathType(self.ptr, math_type) };
+    match status {
+      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
+      e => Err(CudnnError(e)),
+    }
+  }
+}
+
 pub trait CudnnConvExt<T> {
   unsafe fn conv_fwd(&self, alpha: T, beta: T);
   unsafe fn conv_bwd_filter(&self, alpha: T, beta: T);
   unsafe fn conv_bwd_bias(&self, alpha: T, beta: T);
   unsafe fn conv_bwd_data(&self, alpha: T, beta: T);
-}
-
-pub struct CudnnConvDesc {
-  ptr:          cudnnConvolutionDescriptor_t,
 }
 
 pub struct CudnnConv2dOp<T> {

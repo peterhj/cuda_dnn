@@ -23,4 +23,5 @@ path = "src/lib.rs"
 [dependencies]
 #cuda = "^0.2"
 cuda = { path = "../libcuda" }
+float = { path = "../libfloat" }
 #libc = "^0.2"
