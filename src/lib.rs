@@ -22,23 +22,23 @@ pub struct CudnnError(pub cudnnStatus_t);
 pub type CudnnResult<T> = Result<T, CudnnError>;
 
 pub trait CudnnDataTypeExt: Copy {
-  fn raw_data_ty() -> cudnnDataType_t;
+  fn cudnn_data_ty() -> cudnnDataType_t;
 }
 
 impl CudnnDataTypeExt for f16_stub {
-  fn raw_data_ty() -> cudnnDataType_t {
+  fn cudnn_data_ty() -> cudnnDataType_t {
     cudnnDataType_t_CUDNN_DATA_HALF
   }
 }
 
 impl CudnnDataTypeExt for f32 {
-  fn raw_data_ty() -> cudnnDataType_t {
+  fn cudnn_data_ty() -> cudnnDataType_t {
     cudnnDataType_t_CUDNN_DATA_FLOAT
   }
 }
 
 impl CudnnDataTypeExt for f64 {
-  fn raw_data_ty() -> cudnnDataType_t {
+  fn cudnn_data_ty() -> cudnnDataType_t {
     cudnnDataType_t_CUDNN_DATA_DOUBLE
   }
 }
@@ -67,6 +67,10 @@ impl CudnnHandle {
     }
   }
 
+  pub unsafe fn as_mut_ptr(&self) -> cudnnHandle_t {
+    self.ptr
+  }
+
   pub fn set_stream(&self, raw_stream: cudaStream_t) -> CudnnResult<()> {
     let status = unsafe { cudnnSetStream(self.ptr, raw_stream) };
     match status {
@@ -92,6 +96,24 @@ impl<T> Drop for CudnnTensorDesc<T> {
 }
 
 impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
+  pub fn create() -> CudnnResult<CudnnTensorDesc<T>> {
+    let mut ptr: cudnnTensorDescriptor_t = null_mut();
+    let status = unsafe { cudnnCreateTensorDescriptor(&mut ptr as *mut _) };
+    match status {
+      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(CudnnTensorDesc{ptr: ptr, _m: PhantomData}),
+      e => Err(CudnnError(e)),
+    }
+  }
+
+  pub unsafe fn as_mut_ptr(&self) -> cudnnTensorDescriptor_t {
+    self.ptr
+  }
+
+  pub fn set_4d_nchw(&self, num: i32, channels: i32, height: i32, width: i32) -> CudnnResult<()> {
+    // TODO
+    unimplemented!();
+  }
+
   pub fn create_4d_nchw(num: usize, channels: usize, height: usize, width: usize) -> CudnnResult<CudnnTensorDesc<T>> {
     let mut ptr: cudnnTensorDescriptor_t = null_mut();
     let status = unsafe { cudnnCreateTensorDescriptor(&mut ptr as *mut _) };
@@ -102,7 +124,7 @@ impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
     let status = unsafe { cudnnSetTensor4dDescriptor(
         ptr,
         cudnnTensorFormat_t_CUDNN_TENSOR_NCHW,
-        T::raw_data_ty(),
+        T::cudnn_data_ty(),
         num as _,
         channels as _,
         height as _,
@@ -139,6 +161,24 @@ impl<T> Drop for CudnnFilterDesc<T> {
 }
 
 impl<T> CudnnFilterDesc<T> where T: CudnnDataTypeExt {
+  pub fn create() -> CudnnResult<CudnnFilterDesc<T>> {
+    let mut ptr: cudnnFilterDescriptor_t = null_mut();
+    let status = unsafe { cudnnCreateFilterDescriptor(&mut ptr as *mut _) };
+    match status {
+      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(CudnnFilterDesc{ptr: ptr, _m: PhantomData}),
+      e => Err(CudnnError(e)),
+    }
+  }
+
+  pub unsafe fn as_mut_ptr(&self) -> cudnnFilterDescriptor_t {
+    self.ptr
+  }
+
+  pub fn set_4d_nchw(&self, num: i32, channels: i32, height: i32, width: i32) -> CudnnResult<()> {
+    // TODO
+    unimplemented!();
+  }
+
   pub fn create_4d_nchw(num: usize, channels: usize, height: usize, width: usize) -> CudnnResult<CudnnTensorDesc<T>> {
     // TODO
     unimplemented!();
