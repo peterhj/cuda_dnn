@@ -71,7 +71,7 @@ impl CudnnHandle {
   }
 
   pub fn set_stream(&mut self, stream: &mut CudaStream) -> CudnnResult<()> {
-    let status = unsafe { cudnnSetStream(self.ptr, stream.as_ptr()) };
+    let status = unsafe { cudnnSetStream(self.ptr, stream.as_mut_ptr()) };
     match status {
       cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
       _ => Err(CudnnError(status)),
