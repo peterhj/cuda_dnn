@@ -5,7 +5,6 @@ extern crate float;
 
 use ffi::*;
 
-use cuda::ffi::runtime::{cudaStream_t};
 use cuda::runtime::*;
 use float::stub::*;
 
@@ -67,12 +66,12 @@ impl CudnnHandle {
     }
   }
 
-  pub unsafe fn as_mut_ptr(&self) -> cudnnHandle_t {
+  pub unsafe fn as_mut_ptr(&mut self) -> cudnnHandle_t {
     self.ptr
   }
 
-  pub fn set_stream(&self, raw_stream: cudaStream_t) -> CudnnResult<()> {
-    let status = unsafe { cudnnSetStream(self.ptr, raw_stream) };
+  pub fn set_stream(&mut self, stream: &mut CudaStream) -> CudnnResult<()> {
+    let status = unsafe { cudnnSetStream(self.ptr, stream.as_ptr()) };
     match status {
       cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
       _ => Err(CudnnError(status)),
