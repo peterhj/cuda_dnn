@@ -46,6 +46,9 @@ pub struct CudnnHandle {
   ptr:  cudnnHandle_t,
 }
 
+unsafe impl Send for CudnnHandle {}
+unsafe impl Sync for CudnnHandle {}
+
 impl Drop for CudnnHandle {
   fn drop(&mut self) {
     let status = unsafe { cudnnDestroy(self.ptr) };
@@ -83,6 +86,9 @@ pub struct CudnnTensorDesc<T> {
   ptr:  cudnnTensorDescriptor_t,
   _m:   PhantomData<T>,
 }
+
+unsafe impl<T> Send for CudnnTensorDesc<T> where T: CudnnDataTypeExt {}
+unsafe impl<T> Sync for CudnnTensorDesc<T> where T: CudnnDataTypeExt {}
 
 impl<T> Drop for CudnnTensorDesc<T> {
   fn drop(&mut self) {
@@ -149,6 +155,9 @@ pub struct CudnnFilterDesc<T> {
   _m:   PhantomData<T>,
 }
 
+unsafe impl<T> Send for CudnnFilterDesc<T> where T: CudnnDataTypeExt {}
+unsafe impl<T> Sync for CudnnFilterDesc<T> where T: CudnnDataTypeExt {}
+
 impl<T> Drop for CudnnFilterDesc<T> {
   fn drop(&mut self) {
     let status = unsafe { cudnnDestroyFilterDescriptor(self.ptr) };
@@ -187,6 +196,9 @@ impl<T> CudnnFilterDesc<T> where T: CudnnDataTypeExt {
 pub struct CudnnConvDesc {
   ptr:  cudnnConvolutionDescriptor_t,
 }
+
+unsafe impl Send for CudnnConvDesc {}
+unsafe impl Sync for CudnnConvDesc {}
 
 impl CudnnConvDesc {
   pub fn create() -> CudnnResult<CudnnConvDesc> {
