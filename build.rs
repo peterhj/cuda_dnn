@@ -129,7 +129,7 @@ fn main() {
     .whitelist_function("cudnnGetConvolutionBackwardDataAlgorithm")
     .whitelist_function("cudnnGetConvolutionBackwardDataAlgorithm_v7")
     .whitelist_function("cudnnGetConvolutionBackwardDataWorkspaceSize")
-    .whitelist_function("cudnnConvolutionBackwardFilter")
+    .whitelist_function("cudnnConvolutionBackwardData")
     .whitelist_type("cudnnSoftmaxAlgorithm_t")
     .whitelist_type("cudnnSoftmaxMode_t")
     .whitelist_function("cudnnSoftmaxForward")
