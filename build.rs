@@ -1,6 +1,7 @@
 extern crate bindgen;
 
 use std::env;
+use std::fs;
 use std::path::{PathBuf};
 
 fn main() {
@@ -110,6 +111,7 @@ fn main() {
     .whitelist_function("cudnnGetConvolutionForwardAlgorithm_v7")
     .whitelist_function("cudnnGetConvolutionForwardWorkspaceSize")
     .whitelist_function("cudnnConvolutionForward")
+    .whitelist_function("cudnnConvolutionBackwardBias")
     .whitelist_type("cudnnConvolutionBwdFilterPreference_t")
     .whitelist_type("cudnnConvolutionBwdFilterAlgo_t")
     .whitelist_type("cudnnConvolutionBwdFilterAlgoPerf_t")
@@ -168,6 +170,7 @@ fn main() {
     .whitelist_function("cudnnDropoutBackward")
     .generate()
     .expect("bindgen failed to generate cudnn bindings");
+  fs::remove_file(out_dir.join("cudnn_bind.rs")).ok();
   cudnn_bindings
     .write_to_file(out_dir.join("cudnn_bind.rs"))
     .expect("bindgen failed to write cudnn bindings");
