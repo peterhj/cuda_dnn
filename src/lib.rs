@@ -270,10 +270,10 @@ impl CudnnConvDesc {
 }
 
 pub trait CudnnConvExt<WTy, XTy, YTy> {
-  type Scalar;
+  type HostScalar;
 
   unsafe fn conv_fwd(&mut self,
-      alpha: Self::Scalar,
+      alpha: Self::HostScalar,
       x_desc: &mut CudnnTensorDesc<XTy>,
       x: *const XTy,
       w_desc: &mut CudnnFilterDesc<WTy>,
@@ -282,18 +282,18 @@ pub trait CudnnConvExt<WTy, XTy, YTy> {
       algo_desc: cudnnConvolutionFwdAlgo_t,
       workspace: *mut u8,
       workspace_size: usize,
-      beta: Self::Scalar,
+      beta: Self::HostScalar,
       y_desc: &mut CudnnTensorDesc<YTy>,
       y: *mut YTy) -> CudnnResult<()>;
   unsafe fn conv_bwd_bias(&mut self,
-      alpha: Self::Scalar,
+      alpha: Self::HostScalar,
       dy_desc: &mut CudnnTensorDesc<YTy>,
       dy: *const YTy,
-      beta: Self::Scalar,
+      beta: Self::HostScalar,
       db_desc: &mut CudnnTensorDesc<WTy>,
       db: *mut WTy) -> CudnnResult<()>;
   unsafe fn conv_bwd_filter(&mut self,
-      alpha: Self::Scalar,
+      alpha: Self::HostScalar,
       x_desc: &mut CudnnTensorDesc<XTy>,
       x: *const XTy,
       dy_desc: &mut CudnnTensorDesc<YTy>,
@@ -302,11 +302,11 @@ pub trait CudnnConvExt<WTy, XTy, YTy> {
       algo_desc: cudnnConvolutionBwdFilterAlgo_t,
       workspace: *mut u8,
       workspace_size: usize,
-      beta: Self::Scalar,
+      beta: Self::HostScalar,
       dw_desc: &mut CudnnFilterDesc<WTy>,
       dw: *mut WTy) -> CudnnResult<()>;
   unsafe fn conv_bwd_data(&mut self,
-      alpha: Self::Scalar,
+      alpha: Self::HostScalar,
       w_desc: &mut CudnnFilterDesc<WTy>,
       w: *const WTy,
       dy_desc: &mut CudnnTensorDesc<YTy>,
@@ -315,16 +315,16 @@ pub trait CudnnConvExt<WTy, XTy, YTy> {
       algo_desc: cudnnConvolutionBwdDataAlgo_t,
       workspace: *mut u8,
       workspace_size: usize,
-      beta: Self::Scalar,
+      beta: Self::HostScalar,
       dx_desc: &mut CudnnTensorDesc<XTy>,
       dx: *mut XTy) -> CudnnResult<()>;
 }
 
 impl CudnnConvExt<f32, f32, f32> for CudnnHandle {
-  type Scalar = f32;
+  type HostScalar = f32;
 
   unsafe fn conv_fwd(&mut self,
-      alpha: Self::Scalar,
+      alpha: Self::HostScalar,
       x_desc: &mut CudnnTensorDesc<f32>,
       x: *const f32,
       w_desc: &mut CudnnFilterDesc<f32>,
@@ -333,7 +333,7 @@ impl CudnnConvExt<f32, f32, f32> for CudnnHandle {
       algo_desc: cudnnConvolutionFwdAlgo_t,
       workspace: *mut u8,
       workspace_size: usize,
-      beta: Self::Scalar,
+      beta: Self::HostScalar,
       y_desc: &mut CudnnTensorDesc<f32>,
       y: *mut f32) -> CudnnResult<()>
   {
@@ -359,10 +359,10 @@ impl CudnnConvExt<f32, f32, f32> for CudnnHandle {
   }
 
   unsafe fn conv_bwd_bias(&mut self,
-      alpha: Self::Scalar,
+      alpha: Self::HostScalar,
       dy_desc: &mut CudnnTensorDesc<f32>,
       dy: *const f32,
-      beta: Self::Scalar,
+      beta: Self::HostScalar,
       db_desc: &mut CudnnTensorDesc<f32>,
       db: *mut f32) -> CudnnResult<()>
   {
@@ -382,7 +382,7 @@ impl CudnnConvExt<f32, f32, f32> for CudnnHandle {
   }
 
   unsafe fn conv_bwd_filter(&mut self,
-      alpha: Self::Scalar,
+      alpha: Self::HostScalar,
       x_desc: &mut CudnnTensorDesc<f32>,
       x: *const f32,
       dy_desc: &mut CudnnTensorDesc<f32>,
@@ -391,7 +391,7 @@ impl CudnnConvExt<f32, f32, f32> for CudnnHandle {
       algo_desc: cudnnConvolutionBwdFilterAlgo_t,
       workspace: *mut u8,
       workspace_size: usize,
-      beta: Self::Scalar,
+      beta: Self::HostScalar,
       dw_desc: &mut CudnnFilterDesc<f32>,
       dw: *mut f32) -> CudnnResult<()>
   {
@@ -417,7 +417,7 @@ impl CudnnConvExt<f32, f32, f32> for CudnnHandle {
   }
 
   unsafe fn conv_bwd_data(&mut self,
-      alpha: Self::Scalar,
+      alpha: Self::HostScalar,
       w_desc: &mut CudnnFilterDesc<f32>,
       w: *const f32,
       dy_desc: &mut CudnnTensorDesc<f32>,
@@ -426,7 +426,7 @@ impl CudnnConvExt<f32, f32, f32> for CudnnHandle {
       algo_desc: cudnnConvolutionBwdDataAlgo_t,
       workspace: *mut u8,
       workspace_size: usize,
-      beta: Self::Scalar,
+      beta: Self::HostScalar,
       dx_desc: &mut CudnnTensorDesc<f32>,
       dx: *mut f32) -> CudnnResult<()>
   {
@@ -453,7 +453,7 @@ impl CudnnConvExt<f32, f32, f32> for CudnnHandle {
 }
 
 /*impl CudnnConvExt<f16_stub, f16_stub, f16_stub> for CudnnHandle {
-  type Scalar = f32;
+  type HostScalar = f32;
 
   // TODO
 }*/
