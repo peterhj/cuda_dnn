@@ -217,6 +217,16 @@ unsafe impl Sync for CudnnConvDesc {}
 //unsafe impl<T> Send for CudnnConvDesc<T> where T: CudnnDataTypeExt {}
 //unsafe impl<T> Sync for CudnnConvDesc<T> where T: CudnnDataTypeExt {}
 
+impl Drop for CudnnConvDesc {
+  fn drop(&mut self) {
+    let status = unsafe { cudnnDestroyConvolutionDescriptor(self.ptr) };
+    match status {
+      cudnnStatus_t_CUDNN_STATUS_SUCCESS => {}
+      _ => panic!("failed to destroy cudnn conv desc: {:?}", status),
+    }
+  }
+}
+
 impl CudnnConvDesc {
 //impl<T> CudnnConvDesc<T> where T: CudnnDataTypeExt {
   pub fn create() -> CudnnResult<CudnnConvDesc> {

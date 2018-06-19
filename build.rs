@@ -101,6 +101,7 @@ fn main() {
     .whitelist_function("cudnnSetConvolutionNdDescriptor")
     .whitelist_function("cudnnGetConvolutionNdDescriptor")
     .whitelist_function("cudnnGetConvolutionNdForwardOutputDim")
+    .whitelist_function("cudnnDestroyConvolutionDescriptor")
     .whitelist_type("cudnnConvolutionFwdPreference_t")
     .whitelist_type("cudnnConvolutionFwdAlgo_t")
     .whitelist_type("cudnnConvolutionFwdAlgoPerf_t")
