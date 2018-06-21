@@ -692,3 +692,90 @@ impl CudnnActDesc {
     }
   }
 }
+
+pub trait CudnnSoftmaxExt<T> {
+  type HostScalar;
+
+  unsafe fn softmax_fwd(&mut self,
+      algo: cudnnSoftmaxAlgorithm_t,
+      mode: cudnnSoftmaxMode_t,
+      alpha: Self::HostScalar,
+      x_desc: &mut CudnnTensorDesc<T>,
+      x: *const T,
+      beta: Self::HostScalar,
+      y_desc: &mut CudnnTensorDesc<T>,
+      y: *mut T) -> CudnnResult<()>;
+  unsafe fn softmax_bwd(&mut self,
+      algo: cudnnSoftmaxAlgorithm_t,
+      mode: cudnnSoftmaxMode_t,
+      alpha: Self::HostScalar,
+      y_desc: &mut CudnnTensorDesc<T>,
+      y: *const T,
+      dy_desc: &mut CudnnTensorDesc<T>,
+      dy: *const T,
+      beta: Self::HostScalar,
+      dx_desc: &mut CudnnTensorDesc<T>,
+      dx: *mut T) -> CudnnResult<()>;
+}
+
+impl CudnnSoftmaxExt<f32> for CudnnHandle {
+  type HostScalar = f32;
+
+  unsafe fn softmax_fwd(&mut self,
+      algo: cudnnSoftmaxAlgorithm_t,
+      mode: cudnnSoftmaxMode_t,
+      alpha: Self::HostScalar,
+      x_desc: &mut CudnnTensorDesc<f32>,
+      x: *const f32,
+      beta: Self::HostScalar,
+      y_desc: &mut CudnnTensorDesc<f32>,
+      y: *mut f32) -> CudnnResult<()>
+  {
+    let status = unsafe { cudnnSoftmaxForward(
+        self.as_mut_ptr(),
+        algo,
+        mode,
+        &alpha as *const _ as *const _,
+        x_desc.as_mut_ptr(),
+        x as *const _,
+        &beta as *const _ as *const _,
+        y_desc.as_mut_ptr(),
+        y as *mut _,
+    ) };
+    match status {
+      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
+      e => Err(CudnnError(e)),
+    }
+  }
+
+  unsafe fn softmax_bwd(&mut self,
+      algo: cudnnSoftmaxAlgorithm_t,
+      mode: cudnnSoftmaxMode_t,
+      alpha: Self::HostScalar,
+      y_desc: &mut CudnnTensorDesc<f32>,
+      y: *const f32,
+      dy_desc: &mut CudnnTensorDesc<f32>,
+      dy: *const f32,
+      beta: Self::HostScalar,
+      dx_desc: &mut CudnnTensorDesc<f32>,
+      dx: *mut f32) -> CudnnResult<()>
+  {
+    let status = unsafe { cudnnSoftmaxBackward(
+        self.as_mut_ptr(),
+        algo,
+        mode,
+        &alpha as *const _ as *const _,
+        y_desc.as_mut_ptr(),
+        y as *const _,
+        dy_desc.as_mut_ptr(),
+        dy as *const _,
+        &beta as *const _ as *const _,
+        dx_desc.as_mut_ptr(),
+        dx as *mut _,
+    ) };
+    match status {
+      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
+      e => Err(CudnnError(e)),
+    }
+  }
+}
