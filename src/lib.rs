@@ -201,9 +201,20 @@ impl<T> CudnnFilterDesc<T> where T: CudnnDataTypeExt {
     self.ptr
   }
 
-  pub fn set_4d_nchw(&mut self, num: i32, channels: i32, height: i32, width: i32) -> CudnnResult<()> {
-    // TODO
-    unimplemented!();
+  pub fn set_4d_nchw(&mut self, dst_channels: i32, src_channels: i32, height: i32, width: i32) -> CudnnResult<()> {
+    let status = unsafe { cudnnSetFilter4dDescriptor(
+        self.ptr,
+        T::cudnn_data_ty(),
+        cudnnTensorFormat_t_CUDNN_TENSOR_NCHW,
+        dst_channels,
+        src_channels,
+        height,
+        width,
+    ) };
+    match status {
+      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
+      _ => Err(CudnnError(status)),
+    }
   }
 }
 
