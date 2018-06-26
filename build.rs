@@ -29,6 +29,7 @@ fn main() {
     .whitelist_type("cudnnContext")
     .whitelist_type("cudnnHandle_t")
     .whitelist_type("cudnnStatus_t")
+    .whitelist_function("cudnnGetVersion")
     .whitelist_function("cudnnGetErrorString")
     .whitelist_function("cudnnCreate")
     .whitelist_function("cudnnDestroy")

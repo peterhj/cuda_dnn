@@ -15,6 +15,10 @@ use std::ptr::{null_mut};
 
 pub mod ffi;
 
+pub fn cudnn_get_version() -> usize {
+  unsafe { cudnnGetVersion() }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct CudnnError(pub cudnnStatus_t);
 
