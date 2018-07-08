@@ -16,7 +16,7 @@ use std::ptr::{null_mut};
 pub mod ffi;
 
 fn sz2int(sz: usize) -> i32 {
-  assert!(sz <= i32::max_value());
+  assert!(sz <= i32::max_value() as usize);
   sz as i32
 }
 
@@ -245,7 +245,6 @@ impl<T> CudnnFilterDesc<T> where T: CudnnDataTypeExt {
   }
 
   pub fn set_nd(&mut self, dim: &[i32]) -> CudnnResult<()> {
-    assert_eq!(dim.len(), stride.len());
     let ndim = sz2int(dim.len());
     assert!(ndim >= 4);
     assert!(ndim <= CUDNN_DIM_MAX as i32);
