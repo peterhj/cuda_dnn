@@ -15,6 +15,11 @@ use std::ptr::{null_mut};
 
 pub mod ffi;
 
+fn sz2int(sz: usize) -> i32 {
+  assert!(sz <= i32::max_value());
+  sz as i32
+}
+
 pub fn cudnn_get_version() -> usize {
   unsafe { cudnnGetVersion() }
 }
@@ -167,6 +172,24 @@ impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
       _ => Err(CudnnError(status)),
     }
   }
+
+  pub fn set_nd(&mut self, dim: &[i32], stride: &[i32]) -> CudnnResult<()> {
+    assert_eq!(dim.len(), stride.len());
+    let ndim = sz2int(dim.len());
+    assert!(ndim >= 4);
+    assert!(ndim <= CUDNN_DIM_MAX as i32);
+    let status = unsafe { cudnnSetTensorNdDescriptor(
+        self.ptr,
+        T::cudnn_data_ty(),
+        ndim,
+        dim.as_ptr(),
+        stride.as_ptr(),
+    ) };
+    match status {
+      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
+      _ => Err(CudnnError(status)),
+    }
+  }
 }
 
 pub struct CudnnFilterDesc<T> {
@@ -220,6 +243,25 @@ impl<T> CudnnFilterDesc<T> where T: CudnnDataTypeExt {
       _ => Err(CudnnError(status)),
     }
   }
+
+  pub fn set_nd(&mut self, dim: &[i32]) -> CudnnResult<()> {
+    assert_eq!(dim.len(), stride.len());
+    let ndim = sz2int(dim.len());
+    assert!(ndim >= 4);
+    assert!(ndim <= CUDNN_DIM_MAX as i32);
+    let status = unsafe { cudnnSetFilterNdDescriptor(
+        self.ptr,
+        T::cudnn_data_ty(),
+        // FIXME: check that "NCHW" here just means spatial axes are leading.
+        cudnnTensorFormat_t_CUDNN_TENSOR_NCHW,
+        ndim,
+        dim.as_ptr(),
+    ) };
+    match status {
+      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
+      _ => Err(CudnnError(status)),
+    }
+  }
 }
 
 pub struct CudnnConvDesc {
@@ -263,6 +305,25 @@ impl CudnnConvDesc {
         pad_h, pad_w,
         stride_h, stride_w,
         dilation_h, dilation_w,
+        mode,
+        data_ty,
+    ) };
+    match status {
+      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
+      e => Err(CudnnError(e)),
+    }
+  }
+
+  pub fn set_nd(&mut self, pad: &[i32], stride: &[i32], dilation: &[i32], mode: cudnnConvolutionMode_t, data_ty: cudnnDataType_t) -> CudnnResult<()> {
+    assert_eq!(pad.len(), stride.len());
+    assert_eq!(pad.len(), dilation.len());
+    let conv_ndim = sz2int(pad.len());
+    let status = unsafe { cudnnSetConvolutionNdDescriptor(
+        self.ptr,
+        conv_ndim,
+        pad.as_ptr(),
+        stride.as_ptr(),
+        dilation.as_ptr(),
         mode,
         data_ty,
     ) };

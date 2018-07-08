@@ -26,6 +26,7 @@ fn main() {
     .whitelist_var("CUDNN_MAJOR")
     .whitelist_var("CUDNN_MINOR")
     .whitelist_var("CUDNN_PATCHLEVEL")
+    .whitelist_var("CUDNN_DIM_MAX")
     .whitelist_type("cudnnContext")
     .whitelist_type("cudnnHandle_t")
     .whitelist_type("cudnnStatus_t")
