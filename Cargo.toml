@@ -25,3 +25,4 @@ path = "src/lib.rs"
 cuda = { path = "../libcuda" }
 float = { path = "../libfloat" }
 #libc = "^0.2"
+num-traits = "*"

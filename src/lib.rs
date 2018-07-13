@@ -2,11 +2,13 @@
 
 extern crate cuda;
 extern crate float;
+extern crate num_traits;
 
 use ffi::*;
 
 use cuda::runtime::*;
 use float::stub::*;
+use num_traits::identities::{One, Zero};
 
 use std::marker::{PhantomData};
 use std::mem::{uninitialized};
@@ -350,7 +352,7 @@ impl CudnnConvDesc {
 }
 
 pub trait CudnnConvExt<WTy, XTy, YTy> {
-  type HostScalar;
+  type HostScalar: Zero + One;
 
   unsafe fn conv_fwd(&mut self,
       alpha: Self::HostScalar,
@@ -631,7 +633,7 @@ impl CudnnPoolDesc {
 }
 
 pub trait CudnnPoolExt<T> {
-  type HostScalar;
+  type HostScalar: Zero + One;
 
   unsafe fn pool_fwd(&mut self,
       pool_desc: &mut CudnnPoolDesc,
@@ -769,7 +771,7 @@ impl CudnnActDesc {
 }
 
 pub trait CudnnSoftmaxExt<T> {
-  type HostScalar;
+  type HostScalar: Zero + One;
 
   unsafe fn softmax_fwd(&mut self,
       algo: cudnnSoftmaxAlgorithm_t,
