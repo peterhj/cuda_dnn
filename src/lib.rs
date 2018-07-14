@@ -630,6 +630,25 @@ impl CudnnPoolDesc {
       e => Err(CudnnError(e)),
     }
   }
+
+  pub fn set_nd(&mut self, window: &[i32], pad: &[i32], stride: &[i32], mode: cudnnPoolingMode_t, nan_prop: cudnnNanPropagation_t) -> CudnnResult<()> {
+    assert_eq!(window.len(), pad.len());
+    assert_eq!(window.len(), stride.len());
+    let pool_ndim = sz2int(pad.len());
+    let status = unsafe { cudnnSetPoolingNdDescriptor(
+        self.ptr,
+        mode,
+        nan_prop,
+        pool_ndim,
+        window.as_ptr(),
+        pad.as_ptr(),
+        stride.as_ptr(),
+    ) };
+    match status {
+      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
+      e => Err(CudnnError(e)),
+    }
+  }
 }
 
 pub trait CudnnPoolExt<T> {
