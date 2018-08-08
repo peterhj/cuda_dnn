@@ -7,6 +7,10 @@ description = "cuDNN API bindings."
 repository = "https://github.com/peterhj/libcuda_dnn"
 keywords = ["cuda", "cudnn"]
 
+[features]
+default = []
+f16 = ["float"]
+
 [build-dependencies]
 bindgen = "*"
 
@@ -16,5 +20,5 @@ path = "src/lib.rs"
 
 [dependencies]
 cuda = { path = "../libcuda" }
-float = { path = "../float" }
+float = { path = "../float", optional = true }
 num-traits = "*"

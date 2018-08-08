@@ -1,13 +1,13 @@
 #![allow(non_upper_case_globals)]
 
 extern crate cuda;
-extern crate float;
+#[cfg(feature = "f16")] extern crate float;
 extern crate num_traits;
 
 use ffi::*;
 
 use cuda::runtime::*;
-use float::stub::*;
+#[cfg(feature = "f16")] use float::stub::*;
 use num_traits::identities::{One, Zero};
 
 use std::marker::{PhantomData};
@@ -47,6 +47,7 @@ impl CudnnDataTypeExt for f64 {
   }
 }
 
+#[cfg(feature = "f16")]
 impl CudnnDataTypeExt for f16_stub {
   fn cudnn_data_ty() -> cudnnDataType_t {
     cudnnDataType_t_CUDNN_DATA_HALF
