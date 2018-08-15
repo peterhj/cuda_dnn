@@ -4,7 +4,7 @@ version = "0.2.0"
 authors = ["Peter Jin <peterhaijin@gmail.com>"]
 license = "BSD-2-Clause"
 description = "cuDNN API bindings."
-repository = "https://github.com/peterhj/libcuda_dnn"
+repository = "https://github.com/peterhj/cuda_dnn"
 keywords = ["cuda", "cudnn"]
 
 [features]
@@ -12,13 +12,13 @@ default = []
 f16 = ["float"]
 
 [build-dependencies]
-bindgen = "*"
+bindgen = "^0.38"
 
 [lib]
 name = "cuda_dnn"
 path = "src/lib.rs"
 
 [dependencies]
-cuda = { path = "../libcuda" }
-float = { path = "../float", optional = true }
-num-traits = "*"
+cuda = "^0.2"
+float = { version = "^0.1", optional = true }
+num-traits = "^0.2"
