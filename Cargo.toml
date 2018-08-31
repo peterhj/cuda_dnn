@@ -19,6 +19,6 @@ name = "cuda_dnn"
 path = "src/lib.rs"
 
 [dependencies]
-cuda = "^0.2"
+cuda = "^0.3"
 float = { version = "^0.1", optional = true }
 num-traits = "^0.2"
