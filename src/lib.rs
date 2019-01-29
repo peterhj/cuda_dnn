@@ -1,8 +1,15 @@
 #![allow(non_upper_case_globals)]
 
 extern crate cuda;
-extern crate num_traits;
 #[macro_use] extern crate static_assertions;
+
+#[cfg(feature = "hi")]
+pub use hi::*;
+
+pub mod ffi;
+
+#[cfg(feature = "hi")]
+mod hi {
 
 use crate::ffi::cudnn::*;
 
@@ -11,13 +18,10 @@ use cuda::runtime::{CudaStream};
 use cuda::ffi::cuda_fp16::{__half as cuda_f16};
 use cuda::ffi::cuda_runtime_api::{cudaRuntimeGetVersion};
 use cuda::ffi::driver_types::{cudaError_cudaSuccess};
-use num_traits::identities::{One, Zero};
 
 use std::marker::{PhantomData};
 use std::os::raw::{c_int};
 use std::ptr::{null_mut};
-
-pub mod ffi;
 
 fn sz2int(sz: usize) -> i32 {
   assert!(sz <= i32::max_value() as usize);
@@ -369,7 +373,7 @@ impl CudnnConvDesc {
 }
 
 pub trait CudnnConvExt<WTy, XTy, YTy> {
-  type HostScalar: Zero + One;
+  type HostScalar;
 
   unsafe fn conv_fwd(&mut self,
       alpha: Self::HostScalar,
@@ -669,7 +673,7 @@ impl CudnnPoolDesc {
 }
 
 pub trait CudnnPoolExt<T> {
-  type HostScalar: Zero + One;
+  type HostScalar;
 
   unsafe fn pool_fwd(&mut self,
       pool_desc: &mut CudnnPoolDesc,
@@ -807,7 +811,7 @@ impl CudnnActDesc {
 }
 
 pub trait CudnnSoftmaxExt<T> {
-  type HostScalar: Zero + One;
+  type HostScalar;
 
   unsafe fn softmax_fwd(&mut self,
       algo: cudnnSoftmaxAlgorithm_t,
@@ -891,4 +895,6 @@ impl CudnnSoftmaxExt<f32> for CudnnHandle {
       e => Err(CudnnError(e)),
     }
   }
+}
+
 }

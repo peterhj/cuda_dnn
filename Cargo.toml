@@ -9,9 +9,10 @@ repository = "https://github.com/peterhj/cuda_dnn"
 keywords = ["cuda", "cudnn"]
 
 [features]
-default     = []
+default     = ["hi"]
 fresh       = ["bindgen"]
 f16         = []
+hi          = []
 #cudnn_1_0   = []
 #cudnn_2_0   = []
 #cudnn_3_0   = []
@@ -42,5 +43,4 @@ path = "src/lib.rs"
 
 [dependencies]
 cuda = { git = "https://github.com/peterhj/libcuda" }
-num-traits = "^0.2"
 static_assertions = "0.3.1"
