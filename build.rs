@@ -100,9 +100,12 @@ fn main() {
   let maybe_cudnn_include_dir =
       maybe_cudnn_dir.as_ref().map(|d| d.join("include"));
 
+  #[cfg(feature = "cudnn_7_4")]
+  let a_cudnn_version_feature_must_be_enabled = "v7_4";
+  let v = a_cudnn_version_feature_must_be_enabled;
+
   let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-  let gensrc_dir = manifest_dir.join("gensrc").join("ffi");
-  //let gensrc_dir = manifest_dir.join("gensrc").join("ffi").join(v);
+  let gensrc_dir = manifest_dir.join("gensrc").join("ffi").join(v);
   println!("cargo:rerun-if-changed={}", gensrc_dir.display());
   fs::create_dir_all(&gensrc_dir).ok();
 

@@ -2,6 +2,7 @@
 
 extern crate cuda;
 extern crate num_traits;
+#[macro_use] extern crate static_assertions;
 
 use crate::ffi::cudnn::*;
 

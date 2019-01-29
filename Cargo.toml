@@ -19,10 +19,10 @@ f16         = []
 #cudnn_5_0   = []
 #cudnn_5_1   = []
 #cudnn_6_0   = []
-cudnn_7_0   = []
-cudnn_7_1   = []
-cudnn_7_2   = []
-cudnn_7_3   = []
+#cudnn_7_0   = []
+#cudnn_7_1   = []
+#cudnn_7_2   = []
+#cudnn_7_3   = []
 cudnn_7_4   = []
 cuda_6_5    = ["cuda/cuda_6_5"]
 cuda_7_0    = ["cuda/cuda_7_0"]
@@ -43,3 +43,4 @@ path = "src/lib.rs"
 [dependencies]
 cuda = { git = "https://github.com/peterhj/libcuda" }
 num-traits = "^0.2"
+static_assertions = "0.3.1"
