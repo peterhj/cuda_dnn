@@ -37,10 +37,6 @@ cuda_10_0   = ["cuda/cuda_10_0"]
 [build-dependencies]
 bindgen = { version = "^0.46", optional = true }
 
-[lib]
-name = "cuda_dnn"
-path = "src/lib.rs"
-
 [dependencies]
 cuda = { git = "https://github.com/peterhj/libcuda" }
 static_assertions = "0.3.1"
