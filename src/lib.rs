@@ -9,9 +9,12 @@ use crate::ffi::cudnn::*;
 use cuda::runtime::{CudaStream};
 #[cfg(feature = "f16")]
 use cuda::ffi::cuda_fp16::{__half as cuda_f16};
+use cuda::ffi::cuda_runtime_api::{cudaRuntimeGetVersion};
+use cuda::ffi::driver_types::{cudaError_cudaSuccess};
 use num_traits::identities::{One, Zero};
 
 use std::marker::{PhantomData};
+use std::os::raw::{c_int};
 use std::ptr::{null_mut};
 
 pub mod ffi;
@@ -21,12 +24,22 @@ fn sz2int(sz: usize) -> i32 {
   sz as i32
 }
 
-pub fn cudnn_get_version() -> usize {
+pub fn get_version() -> usize {
   unsafe { cudnnGetVersion() }
 }
 
-pub fn cudnn_get_runtime_version() -> usize {
+pub fn get_runtime_version() -> usize {
   unsafe { cudnnGetCudartVersion() }
+}
+
+pub fn check_runtime_version() -> bool {
+  let cudnn_rt_version = unsafe { cudnnGetCudartVersion() };
+  let mut rt_version: i32 = 0;
+  match unsafe { cudaRuntimeGetVersion(&mut rt_version as *mut c_int) } {
+    cudaError_cudaSuccess => {}
+    e => panic!(),
+  }
+  cudnn_rt_version == rt_version as usize
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
