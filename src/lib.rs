@@ -1,18 +1,16 @@
 #![allow(non_upper_case_globals)]
 
 extern crate cuda;
-#[cfg(feature = "f16")] extern crate float;
 extern crate num_traits;
 
-use ffi::*;
+use crate::ffi::cudnn::*;
 
-use cuda::runtime::*;
-#[cfg(feature = "f16")] use float::stub::*;
+use cuda::runtime::{CudaStream};
+#[cfg(feature = "f16")]
+use cuda::ffi::cuda_fp16::{__half as cuda_f16};
 use num_traits::identities::{One, Zero};
 
 use std::marker::{PhantomData};
-use std::mem::{uninitialized};
-use std::os::raw::{c_int};
 use std::ptr::{null_mut};
 
 pub mod ffi;
@@ -26,61 +24,65 @@ pub fn cudnn_get_version() -> usize {
   unsafe { cudnnGetVersion() }
 }
 
-#[derive(Clone, Copy, Debug)]
+pub fn cudnn_get_runtime_version() -> usize {
+  unsafe { cudnnGetCudartVersion() }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct CudnnError(pub cudnnStatus_t);
 
-pub type CudnnResult<T> = Result<T, CudnnError>;
+pub type CudnnResult<T=()> = Result<T, CudnnError>;
 
-pub trait CudnnDataTypeExt: Copy {
+pub trait CudnnDataTypeExt {
   fn cudnn_data_ty() -> cudnnDataType_t;
 }
 
 impl CudnnDataTypeExt for f32 {
   fn cudnn_data_ty() -> cudnnDataType_t {
-    cudnnDataType_t_CUDNN_DATA_FLOAT
+    CUDNN_DATA_FLOAT
   }
 }
 
 impl CudnnDataTypeExt for f64 {
   fn cudnn_data_ty() -> cudnnDataType_t {
-    cudnnDataType_t_CUDNN_DATA_DOUBLE
+    CUDNN_DATA_DOUBLE
   }
 }
 
 #[cfg(feature = "f16")]
-impl CudnnDataTypeExt for f16_stub {
+impl CudnnDataTypeExt for cuda_f16 {
   fn cudnn_data_ty() -> cudnnDataType_t {
-    cudnnDataType_t_CUDNN_DATA_HALF
+    CUDNN_DATA_HALF
   }
 }
 
 impl CudnnDataTypeExt for i8 {
   fn cudnn_data_ty() -> cudnnDataType_t {
-    cudnnDataType_t_CUDNN_DATA_INT8
+    CUDNN_DATA_INT8
   }
 }
 
 impl CudnnDataTypeExt for i32 {
   fn cudnn_data_ty() -> cudnnDataType_t {
-    cudnnDataType_t_CUDNN_DATA_INT32
+    CUDNN_DATA_INT32
   }
 }
 
 /*impl CudnnDataTypeExt for i8x4 {
   fn cudnn_data_ty() -> cudnnDataType_t {
-    cudnnDataType_t_CUDNN_DATA_INT8x4
+    CUDNN_DATA_INT8x4
   }
 }*/
 
 impl CudnnDataTypeExt for u8 {
   fn cudnn_data_ty() -> cudnnDataType_t {
-    cudnnDataType_t_CUDNN_DATA_UINT8
+    CUDNN_DATA_UINT8
   }
 }
 
 /*impl CudnnDataTypeExt for u8x4 {
   fn cudnn_data_ty() -> cudnnDataType_t {
-    cudnnDataType_t_CUDNN_DATA_UINT8x4
+    CUDNN_DATA_UINT8x4
   }
 }*/
 
@@ -95,7 +97,7 @@ impl Drop for CudnnHandle {
   fn drop(&mut self) {
     let status = unsafe { cudnnDestroy(self.ptr) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => {}
+      CUDNN_STATUS_SUCCESS => {}
       _ => panic!("failed to destroy cudnn handle: {:?}", status),
     }
   }
@@ -106,19 +108,19 @@ impl CudnnHandle {
     let mut ptr: cudnnHandle_t = null_mut();
     let status = unsafe { cudnnCreate(&mut ptr as *mut cudnnHandle_t) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(CudnnHandle{ptr: ptr}),
+      CUDNN_STATUS_SUCCESS => Ok(CudnnHandle{ptr: ptr}),
       _ => Err(CudnnError(status)),
     }
   }
 
-  pub unsafe fn as_mut_ptr(&mut self) -> cudnnHandle_t {
+  pub fn as_mut_ptr(&self) -> cudnnHandle_t {
     self.ptr
   }
 
-  pub fn set_stream(&mut self, stream: &mut CudaStream) -> CudnnResult<()> {
+  pub fn set_stream(&mut self, stream: &mut CudaStream) -> CudnnResult {
     let status = unsafe { cudnnSetStream(self.ptr, stream.as_mut_ptr()) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
+      CUDNN_STATUS_SUCCESS => Ok(()),
       _ => Err(CudnnError(status)),
     }
   }
@@ -136,7 +138,7 @@ impl<T> Drop for CudnnTensorDesc<T> {
   fn drop(&mut self) {
     let status = unsafe { cudnnDestroyTensorDescriptor(self.ptr) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => {}
+      CUDNN_STATUS_SUCCESS => {}
       _ => panic!("failed to destroy cudnn tensor desc: {:?}", status),
     }
   }
@@ -147,7 +149,7 @@ impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
     let mut ptr: cudnnTensorDescriptor_t = null_mut();
     let status = unsafe { cudnnCreateTensorDescriptor(&mut ptr as *mut _) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(CudnnTensorDesc{ptr: ptr, _m: PhantomData}),
+      CUDNN_STATUS_SUCCESS => Ok(CudnnTensorDesc{ptr: ptr, _m: PhantomData}),
       e => Err(CudnnError(e)),
     }
   }
@@ -160,10 +162,10 @@ impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
     self.ptr
   }
 
-  pub fn set_4d_nchw(&mut self, num: i32, channels: i32, height: i32, width: i32) -> CudnnResult<()> {
+  pub fn set_4d_nchw(&mut self, num: i32, channels: i32, height: i32, width: i32) -> CudnnResult {
     let status = unsafe { cudnnSetTensor4dDescriptor(
         self.ptr,
-        cudnnTensorFormat_t_CUDNN_TENSOR_NCHW,
+        CUDNN_TENSOR_NCHW,
         T::cudnn_data_ty(),
         num as _,
         channels as _,
@@ -171,12 +173,12 @@ impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
         width as _,
     ) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
+      CUDNN_STATUS_SUCCESS => Ok(()),
       _ => Err(CudnnError(status)),
     }
   }
 
-  pub fn set_nd(&mut self, dim: &[i32], stride: &[i32]) -> CudnnResult<()> {
+  pub fn set_nd(&mut self, dim: &[i32], stride: &[i32]) -> CudnnResult {
     assert_eq!(dim.len(), stride.len());
     let ndim = sz2int(dim.len());
     assert!(ndim >= 4);
@@ -189,7 +191,7 @@ impl<T> CudnnTensorDesc<T> where T: CudnnDataTypeExt {
         stride.as_ptr(),
     ) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
+      CUDNN_STATUS_SUCCESS => Ok(()),
       _ => Err(CudnnError(status)),
     }
   }
@@ -207,7 +209,7 @@ impl<T> Drop for CudnnFilterDesc<T> {
   fn drop(&mut self) {
     let status = unsafe { cudnnDestroyFilterDescriptor(self.ptr) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => {}
+      CUDNN_STATUS_SUCCESS => {}
       _ => panic!("failed to destroy cudnn filter desc: {:?}", status),
     }
   }
@@ -218,7 +220,7 @@ impl<T> CudnnFilterDesc<T> where T: CudnnDataTypeExt {
     let mut ptr: cudnnFilterDescriptor_t = null_mut();
     let status = unsafe { cudnnCreateFilterDescriptor(&mut ptr as *mut _) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(CudnnFilterDesc{ptr: ptr, _m: PhantomData}),
+      CUDNN_STATUS_SUCCESS => Ok(CudnnFilterDesc{ptr: ptr, _m: PhantomData}),
       e => Err(CudnnError(e)),
     }
   }
@@ -231,23 +233,23 @@ impl<T> CudnnFilterDesc<T> where T: CudnnDataTypeExt {
     self.ptr
   }
 
-  pub fn set_4d_nchw(&mut self, dst_channels: i32, src_channels: i32, height: i32, width: i32) -> CudnnResult<()> {
+  pub fn set_4d_nchw(&mut self, dst_channels: i32, src_channels: i32, height: i32, width: i32) -> CudnnResult {
     let status = unsafe { cudnnSetFilter4dDescriptor(
         self.ptr,
         T::cudnn_data_ty(),
-        cudnnTensorFormat_t_CUDNN_TENSOR_NCHW,
+        CUDNN_TENSOR_NCHW,
         dst_channels,
         src_channels,
         height,
         width,
     ) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
+      CUDNN_STATUS_SUCCESS => Ok(()),
       _ => Err(CudnnError(status)),
     }
   }
 
-  pub fn set_nd(&mut self, dim: &[i32]) -> CudnnResult<()> {
+  pub fn set_nd(&mut self, dim: &[i32]) -> CudnnResult {
     let ndim = sz2int(dim.len());
     assert!(ndim >= 4);
     assert!(ndim <= CUDNN_DIM_MAX as i32);
@@ -255,12 +257,12 @@ impl<T> CudnnFilterDesc<T> where T: CudnnDataTypeExt {
         self.ptr,
         T::cudnn_data_ty(),
         // FIXME: check that "NCHW" here just means spatial axes are leading.
-        cudnnTensorFormat_t_CUDNN_TENSOR_NCHW,
+        CUDNN_TENSOR_NCHW,
         ndim,
         dim.as_ptr(),
     ) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
+      CUDNN_STATUS_SUCCESS => Ok(()),
       _ => Err(CudnnError(status)),
     }
   }
@@ -277,7 +279,7 @@ impl Drop for CudnnConvDesc {
   fn drop(&mut self) {
     let status = unsafe { cudnnDestroyConvolutionDescriptor(self.ptr) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => {}
+      CUDNN_STATUS_SUCCESS => {}
       _ => panic!("failed to destroy cudnn conv desc: {:?}", status),
     }
   }
@@ -288,7 +290,7 @@ impl CudnnConvDesc {
     let mut ptr = null_mut();
     let status = unsafe { cudnnCreateConvolutionDescriptor(&mut ptr as *mut _) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(CudnnConvDesc{ptr: ptr}),
+      CUDNN_STATUS_SUCCESS => Ok(CudnnConvDesc{ptr: ptr}),
       e => Err(CudnnError(e)),
     }
   }
@@ -301,7 +303,7 @@ impl CudnnConvDesc {
     self.ptr
   }
 
-  pub fn set_2d(&mut self, pad_h: i32, pad_w: i32, stride_h: i32, stride_w: i32, dilation_h: i32, dilation_w: i32, mode: cudnnConvolutionMode_t, data_ty: cudnnDataType_t) -> CudnnResult<()> {
+  pub fn set_2d(&mut self, pad_h: i32, pad_w: i32, stride_h: i32, stride_w: i32, dilation_h: i32, dilation_w: i32, mode: cudnnConvolutionMode_t, data_ty: cudnnDataType_t) -> CudnnResult {
     let status = unsafe { cudnnSetConvolution2dDescriptor(
         self.ptr,
         pad_h, pad_w,
@@ -311,12 +313,12 @@ impl CudnnConvDesc {
         data_ty,
     ) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
+      CUDNN_STATUS_SUCCESS => Ok(()),
       e => Err(CudnnError(e)),
     }
   }
 
-  pub fn set_nd(&mut self, pad: &[i32], stride: &[i32], dilation: &[i32], mode: cudnnConvolutionMode_t, data_ty: cudnnDataType_t) -> CudnnResult<()> {
+  pub fn set_nd(&mut self, pad: &[i32], stride: &[i32], dilation: &[i32], mode: cudnnConvolutionMode_t, data_ty: cudnnDataType_t) -> CudnnResult {
     assert_eq!(pad.len(), stride.len());
     assert_eq!(pad.len(), dilation.len());
     let conv_ndim = sz2int(pad.len());
@@ -330,23 +332,23 @@ impl CudnnConvDesc {
         data_ty,
     ) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
+      CUDNN_STATUS_SUCCESS => Ok(()),
       e => Err(CudnnError(e)),
     }
   }
 
-  pub fn set_group_count(&mut self, group_count: i32) -> CudnnResult<()> {
+  pub fn set_group_count(&mut self, group_count: i32) -> CudnnResult {
     let status = unsafe { cudnnSetConvolutionGroupCount(self.ptr, group_count) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
+      CUDNN_STATUS_SUCCESS => Ok(()),
       e => Err(CudnnError(e)),
     }
   }
 
-  pub fn set_math_type(&mut self, math_type: cudnnMathType_t) -> CudnnResult<()> {
+  pub fn set_math_type(&mut self, math_type: cudnnMathType_t) -> CudnnResult {
     let status = unsafe { cudnnSetConvolutionMathType(self.ptr, math_type) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
+      CUDNN_STATUS_SUCCESS => Ok(()),
       e => Err(CudnnError(e)),
     }
   }
@@ -367,7 +369,7 @@ pub trait CudnnConvExt<WTy, XTy, YTy> {
       workspace_size: usize,
       beta: Self::HostScalar,
       y_desc: &mut CudnnTensorDesc<YTy>,
-      y: *mut YTy) -> CudnnResult<()>;
+      y: *mut YTy) -> CudnnResult;
   unsafe fn conv_fwd_bias_act(&mut self,
       alpha: Self::HostScalar,
       x_desc: &mut CudnnTensorDesc<XTy>,
@@ -385,14 +387,14 @@ pub trait CudnnConvExt<WTy, XTy, YTy> {
       b: *const WTy,
       act_desc: &mut CudnnActDesc,
       y_desc: &mut CudnnTensorDesc<YTy>,
-      y: *mut YTy) -> CudnnResult<()>;
+      y: *mut YTy) -> CudnnResult;
   unsafe fn conv_bwd_bias(&mut self,
       alpha: Self::HostScalar,
       dy_desc: &mut CudnnTensorDesc<YTy>,
       dy: *const YTy,
       beta: Self::HostScalar,
       db_desc: &mut CudnnTensorDesc<WTy>,
-      db: *mut WTy) -> CudnnResult<()>;
+      db: *mut WTy) -> CudnnResult;
   unsafe fn conv_bwd_filter(&mut self,
       alpha: Self::HostScalar,
       x_desc: &mut CudnnTensorDesc<XTy>,
@@ -405,7 +407,7 @@ pub trait CudnnConvExt<WTy, XTy, YTy> {
       workspace_size: usize,
       beta: Self::HostScalar,
       dw_desc: &mut CudnnFilterDesc<WTy>,
-      dw: *mut WTy) -> CudnnResult<()>;
+      dw: *mut WTy) -> CudnnResult;
   unsafe fn conv_bwd_data(&mut self,
       alpha: Self::HostScalar,
       w_desc: &mut CudnnFilterDesc<WTy>,
@@ -418,7 +420,7 @@ pub trait CudnnConvExt<WTy, XTy, YTy> {
       workspace_size: usize,
       beta: Self::HostScalar,
       dx_desc: &mut CudnnTensorDesc<XTy>,
-      dx: *mut XTy) -> CudnnResult<()>;
+      dx: *mut XTy) -> CudnnResult;
 }
 
 impl CudnnConvExt<f32, f32, f32> for CudnnHandle {
@@ -436,7 +438,7 @@ impl CudnnConvExt<f32, f32, f32> for CudnnHandle {
       workspace_size: usize,
       beta: Self::HostScalar,
       y_desc: &mut CudnnTensorDesc<f32>,
-      y: *mut f32) -> CudnnResult<()>
+      y: *mut f32) -> CudnnResult
   {
     let status = unsafe { cudnnConvolutionForward(
         self.as_mut_ptr(),
@@ -454,7 +456,7 @@ impl CudnnConvExt<f32, f32, f32> for CudnnHandle {
         y as *mut _,
     ) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
+      CUDNN_STATUS_SUCCESS => Ok(()),
       e => Err(CudnnError(e)),
     }
   }
@@ -476,7 +478,7 @@ impl CudnnConvExt<f32, f32, f32> for CudnnHandle {
       b: *const f32,
       act_desc: &mut CudnnActDesc,
       y_desc: &mut CudnnTensorDesc<f32>,
-      y: *mut f32) -> CudnnResult<()>
+      y: *mut f32) -> CudnnResult
   {
     // TODO
     unimplemented!();
@@ -488,7 +490,7 @@ impl CudnnConvExt<f32, f32, f32> for CudnnHandle {
       dy: *const f32,
       beta: Self::HostScalar,
       db_desc: &mut CudnnTensorDesc<f32>,
-      db: *mut f32) -> CudnnResult<()>
+      db: *mut f32) -> CudnnResult
   {
     let status = unsafe { cudnnConvolutionBackwardBias(
         self.as_mut_ptr(),
@@ -500,7 +502,7 @@ impl CudnnConvExt<f32, f32, f32> for CudnnHandle {
         db as *mut _,
     ) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
+      CUDNN_STATUS_SUCCESS => Ok(()),
       e => Err(CudnnError(e)),
     }
   }
@@ -517,7 +519,7 @@ impl CudnnConvExt<f32, f32, f32> for CudnnHandle {
       workspace_size: usize,
       beta: Self::HostScalar,
       dw_desc: &mut CudnnFilterDesc<f32>,
-      dw: *mut f32) -> CudnnResult<()>
+      dw: *mut f32) -> CudnnResult
   {
     let status = unsafe { cudnnConvolutionBackwardFilter(
         self.as_mut_ptr(),
@@ -535,7 +537,7 @@ impl CudnnConvExt<f32, f32, f32> for CudnnHandle {
         dw as *mut _,
     ) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
+      CUDNN_STATUS_SUCCESS => Ok(()),
       e => Err(CudnnError(e)),
     }
   }
@@ -552,7 +554,7 @@ impl CudnnConvExt<f32, f32, f32> for CudnnHandle {
       workspace_size: usize,
       beta: Self::HostScalar,
       dx_desc: &mut CudnnTensorDesc<f32>,
-      dx: *mut f32) -> CudnnResult<()>
+      dx: *mut f32) -> CudnnResult
   {
     let status = unsafe { cudnnConvolutionBackwardData(
         self.as_mut_ptr(),
@@ -570,7 +572,7 @@ impl CudnnConvExt<f32, f32, f32> for CudnnHandle {
         dx as *mut _,
     ) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
+      CUDNN_STATUS_SUCCESS => Ok(()),
       e => Err(CudnnError(e)),
     }
   }
@@ -593,7 +595,7 @@ impl Drop for CudnnPoolDesc {
   fn drop(&mut self) {
     let status = unsafe { cudnnDestroyPoolingDescriptor(self.ptr) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => {}
+      CUDNN_STATUS_SUCCESS => {}
       _ => panic!("failed to destroy cudnn pool desc: {:?}", status),
     }
   }
@@ -604,7 +606,7 @@ impl CudnnPoolDesc {
     let mut ptr = null_mut();
     let status = unsafe { cudnnCreatePoolingDescriptor(&mut ptr as *mut _) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(CudnnPoolDesc{ptr: ptr}),
+      CUDNN_STATUS_SUCCESS => Ok(CudnnPoolDesc{ptr: ptr}),
       e => Err(CudnnError(e)),
     }
   }
@@ -617,7 +619,7 @@ impl CudnnPoolDesc {
     self.ptr
   }
 
-  pub fn set_2d(&mut self, window_h: i32, window_w: i32, pad_h: i32, pad_w: i32, stride_h: i32, stride_w: i32, mode: cudnnPoolingMode_t, nan_prop: cudnnNanPropagation_t) -> CudnnResult<()> {
+  pub fn set_2d(&mut self, window_h: i32, window_w: i32, pad_h: i32, pad_w: i32, stride_h: i32, stride_w: i32, mode: cudnnPoolingMode_t, nan_prop: cudnnNanPropagation_t) -> CudnnResult {
     let status = unsafe { cudnnSetPooling2dDescriptor(
         self.ptr,
         mode,
@@ -627,12 +629,12 @@ impl CudnnPoolDesc {
         stride_h, stride_w,
     ) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
+      CUDNN_STATUS_SUCCESS => Ok(()),
       e => Err(CudnnError(e)),
     }
   }
 
-  pub fn set_nd(&mut self, window: &[i32], pad: &[i32], stride: &[i32], mode: cudnnPoolingMode_t, nan_prop: cudnnNanPropagation_t) -> CudnnResult<()> {
+  pub fn set_nd(&mut self, window: &[i32], pad: &[i32], stride: &[i32], mode: cudnnPoolingMode_t, nan_prop: cudnnNanPropagation_t) -> CudnnResult {
     assert_eq!(window.len(), pad.len());
     assert_eq!(window.len(), stride.len());
     let pool_ndim = sz2int(pad.len());
@@ -646,7 +648,7 @@ impl CudnnPoolDesc {
         stride.as_ptr(),
     ) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
+      CUDNN_STATUS_SUCCESS => Ok(()),
       e => Err(CudnnError(e)),
     }
   }
@@ -662,7 +664,7 @@ pub trait CudnnPoolExt<T> {
       x: *const T,
       beta: Self::HostScalar,
       y_desc: &mut CudnnTensorDesc<T>,
-      y: *mut T) -> CudnnResult<()>;
+      y: *mut T) -> CudnnResult;
   unsafe fn pool_bwd(&mut self,
       pool_desc: &mut CudnnPoolDesc,
       alpha: Self::HostScalar,
@@ -674,7 +676,7 @@ pub trait CudnnPoolExt<T> {
       x: *const T,
       beta: Self::HostScalar,
       dx_desc: &mut CudnnTensorDesc<T>,
-      dx: *mut T) -> CudnnResult<()>;
+      dx: *mut T) -> CudnnResult;
 }
 
 impl CudnnPoolExt<f32> for CudnnHandle {
@@ -688,7 +690,7 @@ impl CudnnPoolExt<f32> for CudnnHandle {
       beta: Self::HostScalar,
       y_desc: &mut CudnnTensorDesc<f32>,
       y: *mut f32)
-  -> CudnnResult<()>
+  -> CudnnResult
   {
     let status = unsafe { cudnnPoolingForward(
         self.as_mut_ptr(),
@@ -701,7 +703,7 @@ impl CudnnPoolExt<f32> for CudnnHandle {
         y as *mut _,
     ) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
+      CUDNN_STATUS_SUCCESS => Ok(()),
       e => Err(CudnnError(e)),
     }
   }
@@ -718,7 +720,7 @@ impl CudnnPoolExt<f32> for CudnnHandle {
       beta: Self::HostScalar,
       dx_desc: &mut CudnnTensorDesc<f32>,
       dx: *mut f32)
-  -> CudnnResult<()>
+  -> CudnnResult
   {
     let status = unsafe { cudnnPoolingBackward(
         self.as_mut_ptr(),
@@ -735,7 +737,7 @@ impl CudnnPoolExt<f32> for CudnnHandle {
         dx as *mut _,
     ) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
+      CUDNN_STATUS_SUCCESS => Ok(()),
       e => Err(CudnnError(e)),
     }
   }
@@ -752,7 +754,7 @@ impl Drop for CudnnActDesc {
   fn drop(&mut self) {
     let status = unsafe { cudnnDestroyActivationDescriptor(self.ptr) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => {}
+      CUDNN_STATUS_SUCCESS => {}
       _ => panic!("failed to destroy cudnn act desc: {:?}", status),
     }
   }
@@ -763,7 +765,7 @@ impl CudnnActDesc {
     let mut ptr = null_mut();
     let status = unsafe { cudnnCreateActivationDescriptor(&mut ptr as *mut _) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(CudnnActDesc{ptr: ptr}),
+      CUDNN_STATUS_SUCCESS => Ok(CudnnActDesc{ptr: ptr}),
       e => Err(CudnnError(e)),
     }
   }
@@ -776,7 +778,7 @@ impl CudnnActDesc {
     self.ptr
   }
 
-  pub fn set(&mut self, coef: f64, mode: cudnnActivationMode_t, nan_prop: cudnnNanPropagation_t) -> CudnnResult<()> {
+  pub fn set(&mut self, coef: f64, mode: cudnnActivationMode_t, nan_prop: cudnnNanPropagation_t) -> CudnnResult {
     let status = unsafe { cudnnSetActivationDescriptor(
         self.ptr,
         mode,
@@ -784,7 +786,7 @@ impl CudnnActDesc {
         coef,
     ) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
+      CUDNN_STATUS_SUCCESS => Ok(()),
       e => Err(CudnnError(e)),
     }
   }
@@ -801,7 +803,7 @@ pub trait CudnnSoftmaxExt<T> {
       x: *const T,
       beta: Self::HostScalar,
       y_desc: &mut CudnnTensorDesc<T>,
-      y: *mut T) -> CudnnResult<()>;
+      y: *mut T) -> CudnnResult;
   unsafe fn softmax_bwd(&mut self,
       algo: cudnnSoftmaxAlgorithm_t,
       mode: cudnnSoftmaxMode_t,
@@ -812,7 +814,7 @@ pub trait CudnnSoftmaxExt<T> {
       dy: *const T,
       beta: Self::HostScalar,
       dx_desc: &mut CudnnTensorDesc<T>,
-      dx: *mut T) -> CudnnResult<()>;
+      dx: *mut T) -> CudnnResult;
 }
 
 impl CudnnSoftmaxExt<f32> for CudnnHandle {
@@ -826,7 +828,7 @@ impl CudnnSoftmaxExt<f32> for CudnnHandle {
       x: *const f32,
       beta: Self::HostScalar,
       y_desc: &mut CudnnTensorDesc<f32>,
-      y: *mut f32) -> CudnnResult<()>
+      y: *mut f32) -> CudnnResult
   {
     let status = unsafe { cudnnSoftmaxForward(
         self.as_mut_ptr(),
@@ -840,7 +842,7 @@ impl CudnnSoftmaxExt<f32> for CudnnHandle {
         y as *mut _,
     ) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
+      CUDNN_STATUS_SUCCESS => Ok(()),
       e => Err(CudnnError(e)),
     }
   }
@@ -855,7 +857,7 @@ impl CudnnSoftmaxExt<f32> for CudnnHandle {
       dy: *const f32,
       beta: Self::HostScalar,
       dx_desc: &mut CudnnTensorDesc<f32>,
-      dx: *mut f32) -> CudnnResult<()>
+      dx: *mut f32) -> CudnnResult
   {
     let status = unsafe { cudnnSoftmaxBackward(
         self.as_mut_ptr(),
@@ -871,7 +873,7 @@ impl CudnnSoftmaxExt<f32> for CudnnHandle {
         dx as *mut _,
     ) };
     match status {
-      cudnnStatus_t_CUDNN_STATUS_SUCCESS => Ok(()),
+      CUDNN_STATUS_SUCCESS => Ok(()),
       e => Err(CudnnError(e)),
     }
   }
