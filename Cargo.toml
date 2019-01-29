@@ -9,14 +9,29 @@ repository = "https://github.com/peterhj/cuda_dnn"
 keywords = ["cuda", "cudnn"]
 
 [features]
-default = []
-fresh = ["bindgen"]
-f16 = []
-#cudnn_7_0 = []
-#cudnn_7_1 = []
-#cudnn_7_2 = []
-#cudnn_7_3 = []
-#cudnn_7_4 = []
+default     = []
+fresh       = ["bindgen"]
+f16         = []
+#cudnn_1_0   = []
+#cudnn_2_0   = []
+#cudnn_3_0   = []
+#cudnn_4_0   = []
+#cudnn_5_0   = []
+#cudnn_5_1   = []
+#cudnn_6_0   = []
+cudnn_7_0   = []
+cudnn_7_1   = []
+cudnn_7_2   = []
+cudnn_7_3   = []
+cudnn_7_4   = []
+cuda_6_5    = ["cuda/cuda_6_5"]
+cuda_7_0    = ["cuda/cuda_7_0"]
+cuda_7_5    = ["cuda/cuda_7_5"]
+cuda_8_0    = ["cuda/cuda_8_0"]
+cuda_9_0    = ["cuda/cuda_9_0"]
+cuda_9_1    = ["cuda/cuda_9_1"]
+cuda_9_2    = ["cuda/cuda_9_2"]
+cuda_10_0   = ["cuda/cuda_10_0"]
 
 [build-dependencies]
 bindgen = { version = "^0.46", optional = true }
@@ -26,5 +41,5 @@ name = "cuda_dnn"
 path = "src/lib.rs"
 
 [dependencies]
-cuda = { git = "https://github.com/peterhj/libcuda", features = ["cuda_10_0"] }
+cuda = { git = "https://github.com/peterhj/libcuda" }
 num-traits = "^0.2"
